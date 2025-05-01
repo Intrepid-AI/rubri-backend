@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+coloredlogs
+python-dotenv
+PyYAML
+pytest>=7.4.0
