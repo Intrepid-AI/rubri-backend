@@ -64,6 +64,7 @@ class Directory_Structure():
 
             return Directory_Structure.todays_folder
 
+
 if __name__ == "__main__":
     # Test make_directories function
     test_dirs = ["test_dir1", "test_dir2"]

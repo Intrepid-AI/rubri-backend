@@ -15,3 +15,10 @@ class Constants(Enum):
     RESUME_PATH = "resume"
     RESUME_AND_JD = "resume_and_jd"
     JD = "job_description"
+    SPACE = " "
+    ALLOWED_FILE_TYPES = {
+        "pdf": "pdf",
+        "txt": "txt",
+        "docx": "docx",
+        "doc": "doc"
+    }
