@@ -1,0 +1,27 @@
+app:
+  name: "Rubri-Backend"
+  version: "0.1.0"
+  debug: true
+  host: "0.0.0.0"
+  port: 8000
+
+database:
+  type: "sqlite"  # Default to SQLite for development
+  sqlite_path: "rubri_dev.db"
+  # PostgreSQL configuration (uncomment to use)
+  # type: "postgresql"
+  # host: "localhost"
+  # port: 5432
+  # username: "postgres"
+  # password: "password"
+  # database: "rubri_dev"
+  pool_size: 5
+  max_overflow: 10
+
+storage:
+  base_dir: "received_data"
+
+llm:
+  provider: "openai"
+  model: "gpt-4"
+  temperature: 0.2
