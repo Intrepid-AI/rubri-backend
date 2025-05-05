@@ -3,7 +3,9 @@ from datetime import datetime
 
 from app.logger import get_logger
 from app.constants import Constants
+
 LOGGER = get_logger(__name__)
+
 
 def make_directories(dir_list):
     for _dir_ in dir_list:
@@ -91,4 +93,4 @@ if __name__ == "__main__":
             if os.path.exists(dir_name):
                 os.rmdir(dir_name)
             print(f"Cleaned up test directory: {dir_name}")
-    
+
