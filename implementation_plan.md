@@ -31,7 +31,6 @@ graph TD
 - Set up rubric history tracking
 
 ### Phase 4: Export & Listing (1-2 days)
-- Implement rubric listing with pagination
 - Create PDF export functionality
 - Add shareable link generation
 - Implement rubric history viewing
