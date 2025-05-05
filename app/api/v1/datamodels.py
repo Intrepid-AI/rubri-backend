@@ -99,11 +99,7 @@ class RubricChatRequest(BaseModel):
 class DocumentResponse(DocumentBase):
     """Response model for document data"""
     id: str
-    filename: str
     original_filename: str
-    content_type: str
-    created_at: datetime
-    extracted_text: Optional[str] = None
     
     class Config:
         orm_mode = True
