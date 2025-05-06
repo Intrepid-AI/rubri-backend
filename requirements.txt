@@ -12,3 +12,8 @@ SQLAlchemy==2.0.40
 starlette==0.46.2
 textract==1.6.3
 uvicorn==0.34.2
+pyyaml
+langchain-core  
+langchain-openai
+langchain-google-genai
+langchain-groq 
