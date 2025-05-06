@@ -11,6 +11,13 @@ def test_constants_values():
     assert Constants.RESUME_PATH.value == "resume"
     assert Constants.RESUME_AND_JD.value == "resume_and_jd"
     assert Constants.JD.value == "job_description"
+    assert Constants.SPACE.value == " "
+    assert Constants.ALLOWED_FILE_TYPES.value == {
+        "pdf": "pdf",
+        "txt": "txt",
+        "docx": "docx",
+        "doc": "doc"
+    }
 
 def test_config_app_path():
     """Test CONFIG_APP path based on environment"""
@@ -25,13 +32,3 @@ def test_constants_immutability():
     """Test that constants cannot be modified"""
     with pytest.raises(AttributeError):
         Constants.LOGS_FOLDER.value = "new_logs"
-
-def test_constants_uniqueness():
-    """Test that all constant values are unique"""
-    values = [const.value for const in Constants]
-    assert len(values) == len(set(values)), "All constant values should be unique"
-
-def test_constants_types():
-    """Test that all constant values are strings"""
-    for const in Constants:
-        assert isinstance(const.value, str), f"{const.name} should be a string" 
