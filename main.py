@@ -1,4 +1,6 @@
 import os
+
+import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -26,16 +28,14 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update with specific origins in production
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(api_v1_router)
 
-# Initialize database on startup
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
@@ -46,10 +46,7 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Error initializing database: {str(e)}")
         logger.error("Application may not function correctly without a database")
-        # We don't re-raise the exception to allow the application to start
-        # even if the database initialization fails
 
-# Exception handlers
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """Handle HTTP exceptions"""
@@ -77,7 +74,6 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={"detail": "Internal server error", "status_code": 500},
     )
 
-# Root endpoint
 @app.get("/", tags=["Root"])
 async def root():
     """Root endpoint"""
@@ -87,20 +83,16 @@ async def root():
         "redoc": "/redoc",
     }
 
-# Health check endpoint
 @app.get("/health", tags=["Health"])
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
 
 if __name__ == "__main__":
-    import uvicorn
     
-    # Get port from environment variable or use default
     port = int(config.get("app.port", 8000))
     host = config.get("app.host", "0.0.0.0")
     
-    # Run the application
     uvicorn.run(
         "main:app",
         host=host,

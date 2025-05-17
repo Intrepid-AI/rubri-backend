@@ -109,7 +109,7 @@ class ModelProvider(str, Enum):
     GROQ = "groq"
     PORTKEY = "portkey"
 
-class LLMOps:
+class LLM_Client_Ops:
     """
     Operations manager for interacting with various LLM providers via LangChain.
     """
@@ -132,7 +132,7 @@ class LLMOps:
         """
         self.provider_name = provider_name.lower()
         
-        all_llm_yaml_configs = LLMOps._get_llm_yaml_config()
+        all_llm_yaml_configs = LLM_Client_Ops._get_llm_yaml_config()
 
         self.provider_yaml_config = all_llm_yaml_configs.get(self.provider_name)
 
@@ -191,8 +191,10 @@ class LLMOps:
 
         constructor_params = self.provider_yaml_config.get("constructor_params", {})
         invoke_params = self.provider_yaml_config.get("invoke_params", {})
+
         if not invoke_params:
             invoke_params = default_invoke_params
+        
         self._invoke_params = invoke_params
 
         try:
@@ -258,6 +260,7 @@ class LLMOps:
             else:
                 logger.warning(f"Health check for {self.provider_name} returned empty response.")
                 return False
+            
         except Exception as e:
             logger.error(f"Health check failed for {self.provider_name}: {e}")
             return False
@@ -300,8 +303,8 @@ if __name__ == "__main__":
     # Example 1: OpenAI
     # print("--- Testing OpenAI ---")
     # try:
-    #     # LLMOps now only needs the provider name. It loads its own config from YAML.
-    #     openai_ops = LLMOps(provider_name="openai")
+    #     # LLM_Client_Ops now only needs the provider name. It loads its own config from YAML.
+    #     openai_ops = LLM_Client_Ops(provider_name="openai")
     #     print(f"OpenAI Health Check: {openai_ops.health_check()}")
     #     if openai_ops.health_check():
     #          print(f"OpenAI Generate Text: {openai_ops.generate_text('What is the capital of France?')}")
@@ -311,7 +314,7 @@ if __name__ == "__main__":
     # Example 2: Gemini
     print("\n--- Testing Gemini ---")
     try:
-        gemini_ops = LLMOps(provider_name="gemini")
+        gemini_ops = LLM_Client_Ops(provider_name="gemini")
         print(f"Gemini Health Check: {gemini_ops.health_check()}")
         if gemini_ops.health_check():
             print(f"Gemini Generate Text: {gemini_ops.generate_text('What is the capital of France?')}")
@@ -321,7 +324,7 @@ if __name__ == "__main__":
     # Example 3: Groq
     print("\n--- Testing Groq ---")
     try:
-        groq_ops = LLMOps(provider_name="groq")
+        groq_ops = LLM_Client_Ops(provider_name="groq")
         print(f"Groq Health Check: {groq_ops.health_check()}")
         if groq_ops.health_check():
             print(f"Groq Generate Text: {groq_ops.generate_text('What is the capital of France?')}")
@@ -331,7 +334,7 @@ if __name__ == "__main__":
     # Example 4: Azure
     print("\n--- Testing Azure OpenAI ---")
     try:
-        azure_ops = LLMOps(provider_name="azure_openai")
+        azure_ops = LLM_Client_Ops(provider_name="azure_openai")
         print(f"Azure OpenAI Health Check: {azure_ops.health_check()}")
         if azure_ops.health_check():
             print(f"Azure OpenAI Generate Text: {azure_ops.generate_text('What is the capital of France?')}")
