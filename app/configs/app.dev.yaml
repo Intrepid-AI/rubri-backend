@@ -36,9 +36,7 @@ llm_providers:
 
   azure_openai:
     constructor_params:
-      azure_deployment: "o3-mini" # Use 'azure_deployment' for Azure constructor
-      azure_endpoint: "YOUR_AZURE_OPENAI_ENDPOINT"
-      api_version: "2024-09-12"
+      azure_deployment: "gpt-4o-mini" # Use 'azure_deployment' for Azure constructor
       temperature: 0.8
       # Add other Azure OpenAI constructor params here
     invoke_params:
