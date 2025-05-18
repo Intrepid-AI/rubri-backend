@@ -1,50 +1,40 @@
+import os
+import time
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
-import time
+
 from app.logger import get_logger
-from app.configs.config import config
+from app.db_ops import db_config
+from app.constants import Constants
 
 logger = get_logger(__name__)
 
-# Get database URL from configuration
-DATABASE_URL = config.get("database.url")
+db_config_dict = db_config.load_database_config()
 
-# Check if we should use SQLite fallback
-USE_SQLITE_FALLBACK = config.get("database.use_sqlite_fallback", True)
-SQLITE_DB_PATH = config.get("database.sqlite_path", "rubri.db")
+DATABASE_URL = db_config_dict["database"]["url"]
+
+USE_SQLITE_FALLBACK = os.getenv("DATABASE_USE_SQLITE_FALLBACK", "true").lower() == "true"
+SQLITE_DB_PATH = os.getenv("DATABASE_SQLITE_PATH", "rubri.db")
 
 def create_db_engine():
     """
     Create database engine with fallback to SQLite if PostgreSQL is not available
     """
-    db_type = config.get("database.type", "sqlite")
+    db_type = os.getenv("DATABASE_TYPE", "sqlite")
     
-    if db_type == "sqlite":
-        # SQLite is the primary database
-        sqlite_path = config.get("database.sqlite_path", "rubri.db")
-        sqlite_url = f"sqlite:///{sqlite_path}"
-        logger.info(f"Using SQLite database at: {sqlite_url}")
-        
-        return create_engine(
-            sqlite_url,
-            connect_args={"check_same_thread": False},
-            echo=config.get("app.debug", False)
-        )
-    
-    elif db_type == "postgresql":
-        # PostgreSQL is the primary database
+    if db_type == "postgresql":
+
         try:
-            # Try to create engine with PostgreSQL
             logger.info(f"Attempting to connect to PostgreSQL database: {DATABASE_URL}")
             engine = create_engine(
                 DATABASE_URL,
                 pool_pre_ping=True,                           # Helps with connection drops
                 pool_recycle=3600,                            # Recycle connections after 1 hour
-                pool_size=config.get("database.pool_size", 5),
-                max_overflow=config.get("database.max_overflow", 10),
-                echo=config.get("app.debug", False),          # Log SQL queries in debug mode
+                pool_size=int(os.getenv("DATABASE_POOL_SIZE", "5")),
+                max_overflow=int(os.getenv("DATABASE_MAX_OVERFLOW", "10")),
+                echo=Constants.APP_DEBUG.value,          # Log SQL queries in debug mode
                 connect_args={"connect_timeout": 5}           # Timeout for connection attempts
             )
             
@@ -56,33 +46,17 @@ def create_db_engine():
             return engine
         except Exception as e:
             logger.error(f"Error connecting to PostgreSQL database: {str(e)}")
-            
-            if USE_SQLITE_FALLBACK:
-                logger.warning("Falling back to SQLite database")
-                sqlite_path = config.get("database.sqlite_path", "rubri.db")
-                sqlite_url = f"sqlite:///{sqlite_path}"
-                logger.info(f"Using SQLite database at: {sqlite_url}")
-                
-                return create_engine(
-                    sqlite_url,
-                    connect_args={"check_same_thread": False},
-                    echo=config.get("app.debug", False)
-                )
-            else:
-                logger.error("No fallback configured. Exiting.")
-                raise
+            raise
     
     else:
-        # Unknown database type, use SQLite
-        logger.warning(f"Unknown database type: {db_type}, defaulting to SQLite")
-        sqlite_path = config.get("database.sqlite_path", "rubri.db")
+        sqlite_path = os.getenv("DATABASE_SQLITE_PATH", "rubri.db")
         sqlite_url = f"sqlite:///{sqlite_path}"
         logger.info(f"Using SQLite database at: {sqlite_url}")
         
         return create_engine(
             sqlite_url,
             connect_args={"check_same_thread": False},
-            echo=config.get("app.debug", False)
+            echo=Constants.APP_DEBUG.value
         )
 
 # Create engine

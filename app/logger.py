@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import os
 import coloredlogs
+import re
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # project root directory
@@ -23,8 +24,6 @@ logging.Logger.success = success
 
 file_loc = os.path.join(Constants.LOGS_FOLDER.value, Constants.LOGS_FILE.value)
 
-# logging.basicConfig(format="%(asctime)s -- %(levelname)s -- %(name)s -- %(message)s")
-
 # Create a ColoredFormatter instance and set color codes
 colored_formatter = coloredlogs.ColoredFormatter(
     fmt="%(asctime)s -- %(levelname)s -- %(name)s -- %(funcName)s -- (%(lineno)d) -- %(message)s",
@@ -42,6 +41,21 @@ colored_formatter = coloredlogs.ColoredFormatter(
         'message': {'color': 'white'},
     }
 )
+
+class SensitiveDataFilter(logging.Filter):
+    def __init__(self, sensitive_fields):
+        super().__init__()
+        self.sensitive_fields = sensitive_fields
+
+    def filter(self, record):
+       msg = record.getMessage()
+       for field in self.sensitive_fields:
+           pattern = re.compile(rf"('{field}'\s*:\s*)(['\"])(.*?)(\2)")
+           msg = pattern.sub(r"\1\2***REDACTED***\2", msg)
+       record.msg = msg
+       record.args = ()  # clear args to avoid additional formatting
+       return True
+    
 
 def get_logger(name):
     log_level = Constants.LOG_LEVEL.value
@@ -67,14 +81,27 @@ def get_logger(name):
 
     handler_file.setFormatter(log_formatter)
     eval("handler_file.setLevel(logging.{0})".format(log_level))
+    
+    # Add the filter to the file handler
+    sensitive_filter = SensitiveDataFilter(['password', 'api_key']) # Customize sensitive fields
+    handler_file.addFilter(sensitive_filter)
 
     LOGGER.addHandler(handler_file)
 
     colored_handler = logging.StreamHandler(sys.stdout)
-    
     colored_handler.setFormatter(colored_formatter)
     eval("colored_handler.setLevel(logging.{0})".format(log_level))
+    
+    # Add the filter to the console handler
+    colored_handler.addFilter(sensitive_filter)
+
     LOGGER.addHandler(colored_handler)
     LOGGER.propagate = False
 
     return LOGGER
+
+if __name__ == "__main__":
+    logger = get_logger(__name__)
+    logger.info("This is a test log message.")
+    sensitive_data = {"password": "mysecretpassword", "api_key": "mysecretapikey"}
+    logger.info(f"Sensitive data: {sensitive_data}")
