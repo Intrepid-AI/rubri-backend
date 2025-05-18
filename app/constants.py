@@ -32,3 +32,4 @@ class Constants(Enum):
     LLM_MODEL = "gpt-4"
     LLM_TEMPERATURE = 0.2
     SENSITIVE_FILTERS = ["password", "api_key"]
+    PROMPTS_DIR = os.path.join("app", "configs", "prompt_templates")

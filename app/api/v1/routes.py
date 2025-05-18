@@ -106,22 +106,25 @@ async def create_rubric(
     This endpoint generates an evaluation rubric based on the provided
     job description and/or resume documents.
     """
-    # Validate document IDs
-    jd_document = None
+
     resume_document = None
     
-    if rubric_create.jd_document_id:
-        jd_document = crud.get_document_by_type(
-            db=db,
-            document_id=rubric_create.jd_document_id,
-            document_type=DocumentType.JD.value
-        )
+    if not rubric_create.jd_document_id:
+        raise HTTPException(
+            status_code=400,
+            detail="JD document ID must be provided"
+
+    jd_document = crud.get_document_by_type(
+        db=db,
+        document_id=rubric_create.jd_document_id,
+        document_type=DocumentType.JD.value
+    )
         
-        if not jd_document:
-            raise HTTPException(
-                status_code=404,
-                detail=f"JD document with ID {rubric_create.jd_document_id} not found"
-            )
+    if not jd_document:
+        raise HTTPException(
+            status_code=404,
+            detail=f"JD document with ID {rubric_create.jd_document_id} not found"
+        )
     
     if rubric_create.resume_document_id:
         resume_document = crud.get_document_by_type(
@@ -136,14 +139,8 @@ async def create_rubric(
                 detail=f"Resume document with ID {rubric_create.resume_document_id} not found"
             )
     
-    if not jd_document and not resume_document:
-        raise HTTPException(
-            status_code=400,
-            detail="At least one of JD or resume document must be provided"
-        )
-    
     # Extract text from documents
-    jd_text = jd_document.extracted_text if jd_document else None
+    jd_text = jd_document.extracted_text
     resume_text = resume_document.extracted_text if resume_document else None
     
     # TODO: Generate rubric using LLM

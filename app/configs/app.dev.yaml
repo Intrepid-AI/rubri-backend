@@ -18,9 +18,6 @@ database:
   pool_size: 5
   max_overflow: 10
 
-storage:
-  base_dir: "received_data"
-
 llm_providers:
   openai:
     constructor_params:
@@ -78,3 +75,7 @@ llm_providers:
       # streaming: false
       # config:
       #   timeout: 60
+
+prompts:
+  prompt_jd : rubric_jd.md
+  prompt_jd_res : rubric_jd_res.md
