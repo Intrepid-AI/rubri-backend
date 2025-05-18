@@ -301,15 +301,15 @@ if __name__ == "__main__":
     # --- End dotenv section ---
 
     # Example 1: OpenAI
-    # print("--- Testing OpenAI ---")
-    # try:
-    #     # LLM_Client_Ops now only needs the provider name. It loads its own config from YAML.
-    #     openai_ops = LLM_Client_Ops(provider_name="openai")
-    #     print(f"OpenAI Health Check: {openai_ops.health_check()}")
-    #     if openai_ops.health_check():
-    #          print(f"OpenAI Generate Text: {openai_ops.generate_text('What is the capital of France?')}")
-    # except Exception as e:
-    #     print(f"OpenAI Test Failed: {e}")
+    print("--- Testing OpenAI ---")
+    try:
+        # LLM_Client_Ops now only needs the provider name. It loads its own config from YAML.
+        openai_ops = LLM_Client_Ops(provider_name="openai")
+        print(f"OpenAI Health Check: {openai_ops.health_check()}")
+        if openai_ops.health_check():
+             print(f"OpenAI Generate Text: {openai_ops.generate_text('What is the capital of France?')}")
+    except Exception as e:
+        print(f"OpenAI Test Failed: {e}")
 
     # Example 2: Gemini
     print("\n--- Testing Gemini ---")
