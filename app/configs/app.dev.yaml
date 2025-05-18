@@ -1,0 +1,80 @@
+app:
+  name: "Rubri-Backend"
+  version: "0.1.0"
+  debug: true
+  host: "0.0.0.0"
+  port: 8000
+
+database:
+  type: "sqlite"  # Default to SQLite for development
+  sqlite_path: "rubri_dev.db"
+  # PostgreSQL configuration (uncomment to use)
+  # type: "postgresql"
+  # host: "localhost"
+  # port: 5432
+  # username: "postgres"
+  # password: "password"
+  # database: "rubri_dev"
+  pool_size: 5
+  max_overflow: 10
+
+storage:
+  base_dir: "received_data"
+
+llm_providers:
+  openai:
+    constructor_params:
+      model: "gpt-4o-mini" # Use 'model' for OpenAI constructor
+      temperature: 0.7
+      # max_tokens: 1024 # max_tokens is often an invoke param, move if needed
+      # Add other OpenAI constructor params here
+    invoke_params:
+      # streaming: false # Example: if streaming is passed to invoke
+      # max_tokens: 1024 # Example: if max_tokens is passed to invoke
+      # config: # Example: Langchain RunnableConfig parameters
+      #   timeout: 60
+
+  azure_openai:
+    constructor_params:
+      azure_deployment: "gpt-4o-mini" # Use 'azure_deployment' for Azure constructor
+      temperature: 0.8
+      # Add other Azure OpenAI constructor params here
+    invoke_params:
+      # streaming: false
+      # config:
+      #   timeout: 60
+
+  gemini:
+    constructor_params:
+      model: "gemini-2.0-flash-001" # Use 'model' for Gemini constructor
+      temperature: 0.8
+      # Add other Gemini constructor params here
+    invoke_params:
+      # streaming: false # streaming is an invoke param for Gemini
+      # config:
+      #   timeout: 60
+
+  groq:
+    constructor_params:
+      model: "meta-llama/llama-4-scout-17b-16e-instruct" # Use 'model' for Groq constructor
+      temperature: 0.8
+      # Add other Groq constructor params here
+    invoke_params:
+      # streaming: false
+      # config:
+      #   timeout: 60
+
+  portkey:
+    constructor_params:
+      model: "gpt-4" # Model Portkey should target (passed to base client constructor)
+      # Add other base client constructor params here (e.g., for ChatOpenAI)
+    invoke_params:
+      # Portkey specific config might go here or in constructor_params depending on Portkey SDK
+      # portkey_config: # This could be a dictionary for Portkey's 'config' parameter
+      #   mode: "fallback"
+      #   retries: 3
+      #   # other portkey specific params
+      temperature: 0.7 # Temperature for the underlying model via Portkey (often an invoke param)
+      # streaming: false
+      # config:
+      #   timeout: 60

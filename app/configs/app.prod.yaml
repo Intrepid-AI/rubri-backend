@@ -1,0 +1,27 @@
+app:
+  name: "Rubri-Backend"
+  version: "0.1.0"
+  debug: false
+  host: "0.0.0.0"
+  port: 8000
+
+database:
+  type: "postgresql"  # Use PostgreSQL for production
+  host: "db"  # Docker service name or production DB host
+  port: 5432
+  username: "rubri_user"
+  password: "strong_password"  # Should be set via environment variable in production
+  database: "rubri_prod"
+  pool_size: 10
+  max_overflow: 20
+  # SQLite fallback configuration
+  use_sqlite_fallback: true  # Fall back to SQLite if PostgreSQL is not available
+  sqlite_path: "/data/rubri_prod.db"
+
+storage:
+  base_dir: "/data/received_data"
+
+llm:
+  provider: "openai"
+  model: "gpt-4"
+  temperature: 0.1  # Lower temperature for more consistent results in production
