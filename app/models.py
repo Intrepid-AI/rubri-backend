@@ -21,7 +21,7 @@ class Document(Base):
     """
     __tablename__ = "documents"
     
-    id = Column(String(36), primary_key=True, default=generate_uuid)
+    doc_id = Column(String(36), primary_key=True, default=generate_uuid)
     filename = Column(String(255), nullable=False)
     original_filename = Column(String(255), nullable=False)
     file_path = Column(String(512), nullable=False)
@@ -36,7 +36,7 @@ class Document(Base):
     )
     
     def __repr__(self):
-        return f"<Document(id='{self.id}', type='{self.document_type}', filename='{self.filename}')>"
+        return f"<Document(id='{self.doc_id}', type='{self.document_type}', filename='{self.filename}')>"
 
 class Rubric(Base):
     """
@@ -47,13 +47,13 @@ class Rubric(Base):
     """
     __tablename__ = "rubrics"
     
-    id = Column(String(36), primary_key=True, default=generate_uuid)
-    title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
-    jd_document_id = Column(String(36), ForeignKey("documents.id"), nullable=True)
-    resume_document_id = Column(String(36), ForeignKey("documents.id"), nullable=True)
+    rubric_id = Column(String(36), primary_key=True, default=generate_uuid)
+    # title = Column(String(255), nullable=False)
+    # description = Column(Text, nullable=True)
+    jd_document_id = Column(String(36), ForeignKey("documents.doc_id"), nullable=True)
+    resume_document_id = Column(String(36), ForeignKey("documents.doc_id"), nullable=True)
     content = Column(JSON, nullable=False)
-    status = Column(String(20), nullable=False, default="draft")  # 'draft', 'published', 'archived'
+    # status = Column(String(20), nullable=False, default="draft")  # 'draft', 'published', 'archived'
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
@@ -63,7 +63,7 @@ class Rubric(Base):
     history = relationship("RubricHistory", back_populates="rubric", cascade="all, delete-orphan")
     
     def __repr__(self):
-        return f"<Rubric(id='{self.id}', title='{self.title}', status='{self.status}')>"
+        return f"<Rubric(id='{self.rubric_id}', title='{self.title}', status='{self.status}')>"
 
 class RubricHistory(Base):
     """
@@ -74,8 +74,8 @@ class RubricHistory(Base):
     """
     __tablename__ = "rubric_history"
     
-    id = Column(String(36), primary_key=True, default=generate_uuid)
-    rubric_id = Column(String(36), ForeignKey("rubrics.id"), nullable=False)
+    rubhis_id = Column(String(36), primary_key=True, default=generate_uuid)
+    rubric_id = Column(String(36), ForeignKey("rubrics.rubric_id"), nullable=False)
     content = Column(JSON, nullable=False)
     change_type = Column(String(20), nullable=False)  # 'created', 'updated', 'chat'
     change_description = Column(Text, nullable=True)
@@ -85,7 +85,7 @@ class RubricHistory(Base):
     rubric = relationship("Rubric", back_populates="history")
     
     def __repr__(self):
-        return f"<RubricHistory(id='{self.id}', rubric_id='{self.rubric_id}', change_type='{self.change_type}')>"
+        return f"<RubricHistory(id='{self.rubhis_id}', rubric_id='{self.rubric_id}', change_type='{self.change_type}')>"
 
 class SharedLink(Base):
     """
@@ -96,8 +96,8 @@ class SharedLink(Base):
     """
     __tablename__ = "shared_links"
     
-    id = Column(String(36), primary_key=True, default=generate_uuid)
-    rubric_id = Column(String(36), ForeignKey("rubrics.id"), nullable=False)
+    link_id = Column(String(36), primary_key=True, default=generate_uuid)
+    rubric_id = Column(String(36), ForeignKey("rubrics.rubric_id"), nullable=False)
     token = Column(String(64), nullable=False, unique=True)
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -111,4 +111,4 @@ class SharedLink(Base):
     )
     
     def __repr__(self):
-        return f"<SharedLink(id='{self.id}', rubric_id='{self.rubric_id}', token='{self.token}')>"
+        return f"<SharedLink(id='{self.link_id}', rubric_id='{self.rubric_id}', token='{self.token}')>"

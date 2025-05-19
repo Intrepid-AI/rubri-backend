@@ -5,8 +5,7 @@ from typing import Optional
 from datetime import datetime
 
 from app.api.v1.datamodels import (
-    DocumentType, RubricStatus, ChangeType,
-    DocumentCreate, DocumentResponse, TextUpload,
+    DocumentType, DocumentResponse, TextUpload,
     RubricCreate, RubricUpdate, RubricResponse, RubricChatRequest,
     RubricListResponse, ExportLinkResponse, ErrorResponse
 )
@@ -228,8 +227,7 @@ async def chat_with_rubric(
     updated_rubric = crud.update_rubric_via_chat(
         db=db,
         rubric_id=chat_request.rubric_id,
-        content=current_content,
-        message=chat_request.message
+        content=current_content
     )
     
     return updated_rubric
@@ -249,8 +247,6 @@ async def edit_rubric(
     updated_rubric = crud.update_rubric(
         db=db,
         rubric_id=rubric_id,
-        title=rubric_update.title,
-        description=rubric_update.description,
         content=rubric_update.content,
         status=rubric_update.status.value if rubric_update.status else None,
         change_description="Manual edit"
@@ -331,7 +327,6 @@ async def export_rubric_pdf(
 async def list_rubrics(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
-    status: Optional[RubricStatus] = Query(None, description="Filter by status"),
     db: Session = Depends(get_db)
 ):
     """
@@ -346,8 +341,7 @@ async def list_rubrics(
     result = crud.list_rubrics(
         db=db,
         skip=skip,
-        limit=page_size,
-        status=status.value if status else None
+        limit=page_size
     )
     
     return result

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, UUID4
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from enum import Enum
@@ -9,12 +9,6 @@ class DocumentType(str, Enum):
     """Enum for document types"""
     JD = "jd"
     RESUME = "resume"
-
-class RubricStatus(str, Enum):
-    """Enum for rubric statuses"""
-    DRAFT = "draft"
-    PUBLISHED = "published"
-    ARCHIVED = "archived"
 
 class ChangeType(str, Enum):
     """Enum for history change types"""
@@ -32,8 +26,6 @@ class DocumentBase(BaseModel):
 
 class RubricBase(BaseModel):
     """Base model for rubric data"""
-    title: str
-    description: Optional[str] = None
     
     class Config:
         orm_mode = True
@@ -47,14 +39,6 @@ class RubricHistoryBase(BaseModel):
         orm_mode = True
 
 # Request Models
-class DocumentCreate(BaseModel):
-    """Model for creating a new document"""
-    document_type: DocumentType
-    file_path: Optional[str] = None
-    text_content: Optional[str] = None
-    
-    class Config:
-        orm_mode = True
 
 class TextUpload(BaseModel):
     """Model for uploading text content"""
@@ -63,42 +47,24 @@ class TextUpload(BaseModel):
 
 class RubricCreate(RubricBase):
     """Model for creating a new rubric"""
-    jd_document_id: Optional[str] = None
-    resume_document_id: Optional[str] = None
+    jd_document_id: Optional[UUID4] = None
+    resume_document_id: Optional[UUID4] = None
     
-    @validator('jd_document_id', 'resume_document_id', pre=True)
-    def validate_uuid(cls, v):
-        if v is not None:
-            try:
-                uuid.UUID(v)
-            except ValueError:
-                raise ValueError('Invalid UUID format')
-        return v
-
 class RubricUpdate(BaseModel):
     """Model for updating an existing rubric"""
     title: Optional[str] = None
     description: Optional[str] = None
     content: Optional[Dict[str, Any]] = None
-    status: Optional[RubricStatus] = None
 
 class RubricChatRequest(BaseModel):
     """Model for chat-based rubric updates"""
-    rubric_id: str
+    rubric_id: UUID4
     message: str
-    
-    @validator('rubric_id', pre=True)
-    def validate_uuid(cls, v):
-        try:
-            uuid.UUID(v)
-        except ValueError:
-            raise ValueError('Invalid UUID format')
-        return v
 
 # Response Models
 class DocumentResponse(DocumentBase):
     """Response model for document data"""
-    id: str
+    doc_id: str
     original_filename: str
     
     class Config:
@@ -120,7 +86,6 @@ class RubricResponse(RubricBase):
     jd_document_id: Optional[str] = None
     resume_document_id: Optional[str] = None
     content: Dict[str, Any]
-    status: RubricStatus
     created_at: datetime
     updated_at: datetime
     jd_document: Optional[DocumentResponse] = None
@@ -160,31 +125,3 @@ class ValidationErrorResponse(BaseModel):
     """Validation error response model"""
     detail: List[ValidationErrorDetail]
     status_code: int = 422
-
-# Legacy models for backward compatibility
-class DocumentRead(BaseModel):
-    """Legacy model for reading documents"""
-    id: int
-    file_path: str
-    text_content: str
-    
-    class Config:
-        orm_mode = True
-
-class RubricRead(BaseModel):
-    """Legacy model for reading rubrics"""
-    id: int
-    document_id: int
-    rubric_content: str
-    
-    class Config:
-        orm_mode = True
-
-class RubricHistoryRead(BaseModel):
-    """Legacy model for reading rubric history"""
-    id: int
-    rubric_id: int
-    rubric_content: str
-    
-    class Config:
-        orm_mode = True

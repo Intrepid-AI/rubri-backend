@@ -4,7 +4,7 @@ from datetime import datetime
 import uuid
 
 from app import models
-from app.api.v1.datamodels import DocumentType, RubricStatus, ChangeType
+from app.api.v1.datamodels import DocumentType, ChangeType
 from app.logger import get_logger
 
 logger = get_logger(__name__)
@@ -35,7 +35,7 @@ def create_document(
         Created document record
     """
     db_document = models.Document(
-        id=str(uuid.uuid4()),
+        doc_id=str(uuid.uuid4()),
         filename=filename,
         original_filename=original_filename,
         file_path=file_path,
@@ -48,7 +48,7 @@ def create_document(
     db.commit()
     db.refresh(db_document)
     
-    logger.info(f"Created document record: {db_document.id}")
+    logger.info(f"Created document record: {db_document.doc_id}")
     return db_document
 
 def get_document(db: Session, document_id: str) -> Optional[models.Document]:
@@ -62,7 +62,7 @@ def get_document(db: Session, document_id: str) -> Optional[models.Document]:
     Returns:
         Document record or None if not found
     """
-    return db.query(models.Document).filter(models.Document.id == document_id).first()
+    return db.query(models.Document).filter(models.Document.doc_id == document_id).first()
 
 def get_document_by_type(
     db: Session, 
@@ -81,7 +81,7 @@ def get_document_by_type(
         Document record or None if not found
     """
     return db.query(models.Document).filter(
-        models.Document.id == document_id,
+        models.Document.doc_id == document_id,
         models.Document.document_type == document_type
     ).first()
 
@@ -115,12 +115,9 @@ def update_document_text(
 # Rubric operations
 def create_rubric(
     db: Session,
-    title: str,
-    description: Optional[str],
     content: Dict[str, Any],
     jd_document_id: Optional[str] = None,
     resume_document_id: Optional[str] = None,
-    status: str = RubricStatus.DRAFT.value
 ) -> models.Rubric:
     """
     Create a new rubric record in the database.
@@ -138,13 +135,10 @@ def create_rubric(
         Created rubric record
     """
     db_rubric = models.Rubric(
-        id=str(uuid.uuid4()),
-        title=title,
-        description=description,
+        rubric_id=str(uuid.uuid4()),
         content=content,
         jd_document_id=jd_document_id,
         resume_document_id=resume_document_id,
-        status=status
     )
     
     db.add(db_rubric)
@@ -154,13 +148,13 @@ def create_rubric(
     # Create history record
     create_rubric_history(
         db=db,
-        rubric_id=db_rubric.id,
+        rubric_id=db_rubric.rubric_id,
         content=content,
         change_type=ChangeType.CREATED.value,
         change_description="Initial rubric creation"
     )
     
-    logger.info(f"Created rubric record: {db_rubric.id}")
+    logger.info(f"Created rubric record: {db_rubric.rubric_id}")
     return db_rubric
 
 def get_rubric(db: Session, rubric_id: str) -> Optional[models.Rubric]:
@@ -174,15 +168,12 @@ def get_rubric(db: Session, rubric_id: str) -> Optional[models.Rubric]:
     Returns:
         Rubric record or None if not found
     """
-    return db.query(models.Rubric).filter(models.Rubric.id == rubric_id).first()
+    return db.query(models.Rubric).filter(models.Rubric.rubric_id == rubric_id).first()
 
 def update_rubric(
     db: Session,
     rubric_id: str,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
     content: Optional[Dict[str, Any]] = None,
-    status: Optional[str] = None,
     change_description: str = "Manual update"
 ) -> Optional[models.Rubric]:
     """
@@ -205,18 +196,8 @@ def update_rubric(
         logger.error(f"Rubric not found: {rubric_id}")
         return None
     
-    # Update fields if provided
-    if title is not None:
-        db_rubric.title = title
-    
-    if description is not None:
-        db_rubric.description = description
-    
     if content is not None:
         db_rubric.content = content
-    
-    if status is not None:
-        db_rubric.status = status
     
     db_rubric.updated_at = datetime.utcnow()
     
@@ -227,20 +208,19 @@ def update_rubric(
     if content is not None:
         create_rubric_history(
             db=db,
-            rubric_id=db_rubric.id,
+            rubric_id=db_rubric.rubric_id,
             content=db_rubric.content,
             change_type=ChangeType.UPDATED.value,
             change_description=change_description
         )
     
-    logger.info(f"Updated rubric record: {db_rubric.id}")
+    logger.info(f"Updated rubric record: {db_rubric.rubric_id}")
     return db_rubric
 
 def update_rubric_via_chat(
     db: Session,
     rubric_id: str,
-    content: Dict[str, Any],
-    message: str
+    content: Dict[str, Any]
 ) -> Optional[models.Rubric]:
     """
     Update a rubric via chat.
@@ -269,20 +249,18 @@ def update_rubric_via_chat(
     # Create history record
     create_rubric_history(
         db=db,
-        rubric_id=db_rubric.id,
+        rubric_id=db_rubric.rubric_id,
         content=content,
-        change_type=ChangeType.CHAT.value,
-        change_description=f"Updated via chat: {message}"
+        change_type=ChangeType.CHAT.value
     )
     
-    logger.info(f"Updated rubric via chat: {db_rubric.id}")
+    logger.info(f"Updated rubric via chat: {db_rubric.rubric_id}")
     return db_rubric
 
 def list_rubrics(
     db: Session,
     skip: int = 0,
-    limit: int = 100,
-    status: Optional[str] = None
+    limit: int = 100
 ) -> Dict[str, Any]:
     """
     List rubrics with pagination and optional filtering.
@@ -298,10 +276,6 @@ def list_rubrics(
     """
     # Build query
     query = db.query(models.Rubric)
-    
-    # Apply filters
-    if status:
-        query = query.filter(models.Rubric.status == status)
     
     # Get total count
     total = query.count()
@@ -326,7 +300,6 @@ def create_rubric_history(
     rubric_id: str,
     content: Dict[str, Any],
     change_type: str,
-    change_description: Optional[str] = None
 ) -> models.RubricHistory:
     """
     Create a new rubric history record.
@@ -342,18 +315,17 @@ def create_rubric_history(
         Created rubric history record
     """
     db_history = models.RubricHistory(
-        id=str(uuid.uuid4()),
+        rubhis_id=str(uuid.uuid4()),
         rubric_id=rubric_id,
         content=content,
-        change_type=change_type,
-        change_description=change_description
+        change_type=change_type
     )
     
     db.add(db_history)
     db.commit()
     db.refresh(db_history)
     
-    logger.info(f"Created rubric history record: {db_history.id}")
+    logger.info(f"Created rubric history record: {db_history.rubhis_id}")
     return db_history
 
 def get_rubric_history(
@@ -401,7 +373,7 @@ def create_shared_link(
     token = str(uuid.uuid4())
     
     db_link = models.SharedLink(
-        id=str(uuid.uuid4()),
+        link_id=str(uuid.uuid4()),
         rubric_id=rubric_id,
         token=token,
         expires_at=expires_at
