@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 import uuid
 
-from app import models
+from app.db_ops import models
 from app.api.v1.datamodels import DocumentType, ChangeType
 from app.logger import get_logger
 

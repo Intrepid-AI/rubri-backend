@@ -90,7 +90,7 @@ def init_db():
     """
     try:
         # Import models to ensure they're registered with Base
-        from app.models import Document, Rubric, RubricHistory, SharedLink
+        from app.db_ops.models import Document, Rubric, RubricHistory, SharedLink
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
