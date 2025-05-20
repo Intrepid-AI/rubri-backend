@@ -10,17 +10,18 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.logger import get_logger
 from app.api.v1.routes import router as api_v1_router
 from app.api.v1.datamodels import ValidationErrorResponse, ErrorResponse
-from app.configs.config import config
 from app.db_ops.database import init_db
+from app.constants import Constants
+
 
 # Initialize logger
 logger = get_logger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title=config.get("app.name", "Rubri-Backend"),
+    title=Constants.APP_NAME.value,
     description="API for generating and managing evaluation rubrics based on job descriptions and candidate resumes",
-    version=config.get("app.version", "0.1.0"),
+    version=Constants.APP_VERSION.value,
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -90,13 +91,13 @@ async def health_check():
 
 if __name__ == "__main__":
     
-    port = int(config.get("app.port", 8000))
-    host = config.get("app.host", "0.0.0.0")
+    port = Constants.APP_PORT.value
+    host = Constants.APP_HOST.value
     
     uvicorn.run(
         "main:app",
         host=host,
         port=port,
-        reload=config.get("app.debug", True),
+        reload=Constants.APP_DEBUG.value,
         log_level="info",
     )

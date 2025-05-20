@@ -61,7 +61,7 @@ async def _process_file_upload(
     background_tasks.add_task(
         _extract_text_from_file,
         file_path=file_path,
-        document_id=db_document.id,
+        document_id=db_document.doc_id,
         db=db
     )
     

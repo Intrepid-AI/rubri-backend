@@ -5,8 +5,7 @@ from typing import Optional
 from datetime import datetime
 
 from app.api.v1.datamodels import (
-    DocumentType, RubricStatus, ChangeType,
-    DocumentCreate, DocumentResponse, TextUpload,
+    DocumentType, DocumentResponse, TextUpload,
     RubricCreate, RubricUpdate, RubricResponse, RubricChatRequest,
     RubricListResponse, ExportLinkResponse, ErrorResponse
 )
@@ -16,6 +15,7 @@ from app.logger import get_logger
 from app.db_ops.database import get_db
 from app.db_ops import crud
 from app.services.file_upload_ops import _process_file_upload, _process_text_upload
+from app.services.llm_rubric_ops import RubricGenerator
 
 # Initialize router
 router = APIRouter()
@@ -95,7 +95,7 @@ async def upload_resume_text(
     )
 
 # Rubric Routes
-@router.post("/rubric/create", response_model=RubricResponse, tags=["Rubric"])
+@router.post("/rubric/create", tags=["Rubric"])
 async def create_rubric(
     rubric_create: RubricCreate,
     db: Session = Depends(get_db)
@@ -106,22 +106,26 @@ async def create_rubric(
     This endpoint generates an evaluation rubric based on the provided
     job description and/or resume documents.
     """
-    # Validate document IDs
-    jd_document = None
+
     resume_document = None
     
-    if rubric_create.jd_document_id:
-        jd_document = crud.get_document_by_type(
-            db=db,
-            document_id=rubric_create.jd_document_id,
-            document_type=DocumentType.JD.value
-        )
-        
-        if not jd_document:
-            raise HTTPException(
-                status_code=404,
-                detail=f"JD document with ID {rubric_create.jd_document_id} not found"
+    if not rubric_create.jd_document_id:
+        raise HTTPException(
+            status_code=400,
+            detail="JD document ID must be provided"
             )
+    
+    jd_document = crud.get_document_by_type(
+        db=db,
+        document_id=rubric_create.jd_document_id,
+        document_type=DocumentType.JD.value
+    )
+        
+    if not jd_document:
+        raise HTTPException(
+            status_code=404,
+            detail=f"JD document with ID {rubric_create.jd_document_id} not found"
+        )
     
     if rubric_create.resume_document_id:
         resume_document = crud.get_document_by_type(
@@ -136,56 +140,56 @@ async def create_rubric(
                 detail=f"Resume document with ID {rubric_create.resume_document_id} not found"
             )
     
-    if not jd_document and not resume_document:
-        raise HTTPException(
-            status_code=400,
-            detail="At least one of JD or resume document must be provided"
-        )
-    
     # Extract text from documents
-    jd_text = jd_document.extracted_text if jd_document else None
+    jd_text = jd_document.extracted_text
     resume_text = resume_document.extracted_text if resume_document else None
     
+    rubric_generator = RubricGenerator(db=db)
+    dict_result_rubric = rubric_generator.generate_rubric(jd_text=jd_text, 
+                                                          resume_text=resume_text)
+
+
     # TODO: Generate rubric using LLM
     # For now, create a mock rubric
-    mock_content = {
-        "title": f"Evaluation Rubric for {rubric_create.title}",
-        "sections": [
-            {
-                "name": "Technical Skills",
-                "items": [
-                    {
-                        "skill": "Example Skill",
-                        "description": "Description of the skill",
-                        "scoring_criteria": {
-                            "1": "Poor - Description",
-                            "2": "Below Average - Description",
-                            "3": "Average - Description",
-                            "4": "Above Average - Description",
-                            "5": "Excellent - Description"
-                        },
-                        "sample_questions": [
-                            "Example question 1?",
-                            "Example question 2?"
-                        ]
-                    }
-                ]
-            }
-        ]
-    }
+    # mock_content = {
+    #     "title": f"Evaluation Rubric for {rubric_create.title}",
+    #     "sections": [
+    #         {
+    #             "name": "Technical Skills",
+    #             "items": [
+    #                 {
+    #                     "skill": "Example Skill",
+    #                     "description": "Description of the skill",
+    #                     "scoring_criteria": {
+    #                         "1": "Poor - Description",
+    #                         "2": "Below Average - Description",
+    #                         "3": "Average - Description",
+    #                         "4": "Above Average - Description",
+    #                         "5": "Excellent - Description"
+    #                     },
+    #                     "sample_questions": [
+    #                         "Example question 1?",
+    #                         "Example question 2?"
+    #                     ]
+    #                 }
+    #             ]
+    #         }
+    #     ]
+    # }
     
     # Create rubric record using CRUD operation
-    db_rubric = crud.create_rubric(
-        db=db,
-        title=rubric_create.title,
-        description=rubric_create.description,
-        content=mock_content,
-        jd_document_id=jd_document.id if jd_document else None,
-        resume_document_id=resume_document.id if resume_document else None,
-        status=RubricStatus.DRAFT.value
-    )
-    
-    return db_rubric
+    # db_rubric = crud.create_rubric(
+    #     db=db,
+    #     title=rubric_create.title,
+    #     description=rubric_create.description,
+    #     content=mock_content,
+    #     jd_document_id=jd_document.id if jd_document else None,
+    #     resume_document_id=resume_document.id if resume_document else None,
+    #     status=RubricStatus.DRAFT.value
+    # )
+    import pprint
+    pprint.pprint(dict_result_rubric, indent=2)
+    return dict_result_rubric
 
 @router.post("/rubric/chat", response_model=RubricResponse, tags=["Rubric"])
 async def chat_with_rubric(
@@ -223,8 +227,7 @@ async def chat_with_rubric(
     updated_rubric = crud.update_rubric_via_chat(
         db=db,
         rubric_id=chat_request.rubric_id,
-        content=current_content,
-        message=chat_request.message
+        content=current_content
     )
     
     return updated_rubric
@@ -244,8 +247,6 @@ async def edit_rubric(
     updated_rubric = crud.update_rubric(
         db=db,
         rubric_id=rubric_id,
-        title=rubric_update.title,
-        description=rubric_update.description,
         content=rubric_update.content,
         status=rubric_update.status.value if rubric_update.status else None,
         change_description="Manual edit"
@@ -326,7 +327,6 @@ async def export_rubric_pdf(
 async def list_rubrics(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
-    status: Optional[RubricStatus] = Query(None, description="Filter by status"),
     db: Session = Depends(get_db)
 ):
     """
@@ -341,8 +341,7 @@ async def list_rubrics(
     result = crud.list_rubrics(
         db=db,
         skip=skip,
-        limit=page_size,
-        status=status.value if status else None
+        limit=page_size
     )
     
     return result
