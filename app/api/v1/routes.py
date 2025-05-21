@@ -117,8 +117,7 @@ async def create_rubric(
     
     jd_document = crud.get_document_by_type(
         db=db,
-        document_id=rubric_create.jd_document_id,
-        document_type=DocumentType.JD.value
+        document_id=rubric_create.jd_document_id
     )
         
     if not jd_document:
