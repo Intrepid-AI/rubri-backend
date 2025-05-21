@@ -95,7 +95,7 @@ async def upload_resume_text(
     )
 
 # Rubric Routes
-@router.post("/rubric/create", tags=["Rubric"])
+@router.post("/rubric/create", response_model=RubricResponse, tags=["Rubric"])
 async def create_rubric(
     rubric_create: RubricCreate,
     db: Session = Depends(get_db)
@@ -115,7 +115,7 @@ async def create_rubric(
             detail="JD document ID must be provided"
             )
     
-    jd_document = crud.get_document_by_type(
+    jd_document = crud.get_document(
         db=db,
         document_id=rubric_create.jd_document_id
     )
@@ -127,10 +127,9 @@ async def create_rubric(
         )
     
     if rubric_create.resume_document_id:
-        resume_document = crud.get_document_by_type(
+        resume_document = crud.get_document(
             db=db,
-            document_id=rubric_create.resume_document_id,
-            document_type=DocumentType.RESUME.value
+            document_id=rubric_create.resume_document_id
         )
         
         if not resume_document:
@@ -144,51 +143,10 @@ async def create_rubric(
     resume_text = resume_document.extracted_text if resume_document else None
     
     rubric_generator = RubricGenerator(db=db)
-    dict_result_rubric = rubric_generator.generate_rubric(jd_text=jd_text, 
-                                                          resume_text=resume_text)
+    rubric_result = rubric_generator.generate_rubric(jd=jd_document, 
+                                                          resume=resume_document)
 
-
-    # TODO: Generate rubric using LLM
-    # For now, create a mock rubric
-    # mock_content = {
-    #     "title": f"Evaluation Rubric for {rubric_create.title}",
-    #     "sections": [
-    #         {
-    #             "name": "Technical Skills",
-    #             "items": [
-    #                 {
-    #                     "skill": "Example Skill",
-    #                     "description": "Description of the skill",
-    #                     "scoring_criteria": {
-    #                         "1": "Poor - Description",
-    #                         "2": "Below Average - Description",
-    #                         "3": "Average - Description",
-    #                         "4": "Above Average - Description",
-    #                         "5": "Excellent - Description"
-    #                     },
-    #                     "sample_questions": [
-    #                         "Example question 1?",
-    #                         "Example question 2?"
-    #                     ]
-    #                 }
-    #             ]
-    #         }
-    #     ]
-    # }
-    
-    # Create rubric record using CRUD operation
-    # db_rubric = crud.create_rubric(
-    #     db=db,
-    #     title=rubric_create.title,
-    #     description=rubric_create.description,
-    #     content=mock_content,
-    #     jd_document_id=jd_document.id if jd_document else None,
-    #     resume_document_id=resume_document.id if resume_document else None,
-    #     status=RubricStatus.DRAFT.value
-    # )
-    import pprint
-    pprint.pprint(dict_result_rubric, indent=2)
-    return dict_result_rubric
+    return rubric_result
 
 @router.post("/rubric/chat", response_model=RubricResponse, tags=["Rubric"])
 async def chat_with_rubric(

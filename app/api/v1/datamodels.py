@@ -1,8 +1,7 @@
-from pydantic import BaseModel, Field, validator, UUID4
+from pydantic import BaseModel
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from enum import Enum
-import uuid
 
 # Enum Models
 class DocumentType(str, Enum):
@@ -47,8 +46,8 @@ class TextUpload(BaseModel):
 
 class RubricCreate(RubricBase):
     """Model for creating a new rubric"""
-    jd_document_id: Optional[UUID4] = None
-    resume_document_id: Optional[UUID4] = None
+    jd_document_id: Optional[str] = None
+    resume_document_id: Optional[str] = None
     
 class RubricUpdate(BaseModel):
     """Model for updating an existing rubric"""
@@ -58,7 +57,7 @@ class RubricUpdate(BaseModel):
 
 class RubricChatRequest(BaseModel):
     """Model for chat-based rubric updates"""
-    rubric_id: UUID4
+    rubric_id: str
     message: str
 
 # Response Models
@@ -82,15 +81,9 @@ class RubricHistoryResponse(RubricHistoryBase):
 
 class RubricResponse(RubricBase):
     """Response model for rubric data"""
-    id: str
-    jd_document_id: Optional[str] = None
-    resume_document_id: Optional[str] = None
-    content: Dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
-    jd_document: Optional[DocumentResponse] = None
-    resume_document: Optional[DocumentResponse] = None
-    
+    rubric_id: str
+    content: str
+
     class Config:
         orm_mode = True
 

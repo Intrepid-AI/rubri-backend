@@ -115,8 +115,9 @@ def update_document_text(
 def create_rubric(
     db: Session,
     content: Dict[str, Any],
+    conversation: List[Dict[str, Any]],
     jd_document_id: Optional[str] = None,
-    resume_document_id: Optional[str] = None,
+    resume_document_id: Optional[str] = None
 ) -> models.Rubric:
     """
     Create a new rubric record in the database.
@@ -136,8 +137,11 @@ def create_rubric(
     db_rubric = models.Rubric(
         rubric_id=str(uuid.uuid4()),
         content=content,
+        conversation=conversation,
         jd_document_id=jd_document_id,
         resume_document_id=resume_document_id,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow()
     )
     
     db.add(db_rubric)
@@ -315,7 +319,8 @@ def create_rubric_history(
         rubhis_id=str(uuid.uuid4()),
         rubric_id=rubric_id,
         content=content,
-        change_type=change_type
+        change_type=change_type,
+        created_at=datetime.utcnow()
     )
     
     db.add(db_history)
@@ -404,75 +409,75 @@ if __name__ == "__main__":
     db = SessionLocal()
     pp = pprint.PrettyPrinter(indent=2)
 
-    print("--- Testing Document Creation ---")
-    doc = create_document(
-        db=db,
-        filename=uuid4().hex + "testfile.txt",
-        original_filename="original_testfile.txt",
-        file_path="/tmp/testfile.txt",
-        content_type="text/plain",
-        document_type="jd",
-        extracted_text="Sample extracted text."
-    )
-    pp.pprint(doc.__dict__)
+    # print("--- Testing Document Creation ---")
+    # doc = create_document(
+    #     db=db,
+    #     filename=uuid4().hex + "testfile.txt",
+    #     original_filename="original_testfile.txt",
+    #     file_path="/tmp/testfile.txt",
+    #     content_type="text/plain",
+    #     document_type="jd",
+    #     extracted_text="Sample extracted text."
+    # )
+    # pp.pprint(doc.__dict__)
 
     print("--- Testing Get Document ---")
-    fetched_doc = get_document(db, doc.doc_id)
+    fetched_doc = get_document(db, "acbd607a-7d0b-4d05-8f21-78642abe25c7")
     pp.pprint(fetched_doc.__dict__ if fetched_doc else None)
 
-    print("--- Testing Rubric Creation ---")
-    rubric = create_rubric(
-        db=db,
-        content={"criteria": ["Skill A", "Skill B"]},
-        jd_document_id=doc.doc_id
-    )
-    pp.pprint(rubric.__dict__)
+    # print("--- Testing Rubric Creation ---")
+    # rubric = create_rubric(
+    #     db=db,
+    #     content={"criteria": ["Skill A", "Skill B"]},
+    #     jd_document_id=doc.doc_id
+    # )
+    # pp.pprint(rubric.__dict__)
 
-    print("--- Testing Get Rubric ---")
-    fetched_rubric = get_rubric(db, rubric.rubric_id)
-    pp.pprint(fetched_rubric.__dict__ if fetched_rubric else None)
+    # print("--- Testing Get Rubric ---")
+    # fetched_rubric = get_rubric(db, rubric.rubric_id)
+    # pp.pprint(fetched_rubric.__dict__ if fetched_rubric else None)
 
-    print("--- Testing Update Rubric ---")
-    updated_rubric = update_rubric(
-        db=db,
-        rubric_id=rubric.rubric_id,
-        content={"criteria": ["Skill A", "Skill B", "Skill C"]},
-        change_description="Added Skill C"
-    )
-    pp.pprint(updated_rubric.__dict__ if updated_rubric else None)
+    # print("--- Testing Update Rubric ---")
+    # updated_rubric = update_rubric(
+    #     db=db,
+    #     rubric_id=rubric.rubric_id,
+    #     content={"criteria": ["Skill A", "Skill B", "Skill C"]},
+    #     change_description="Added Skill C"
+    # )
+    # pp.pprint(updated_rubric.__dict__ if updated_rubric else None)
 
-    print("--- Testing Update Rubric (No Content Change) ---")
-    updated_rubric_no_content = update_rubric(
-        db=db,
-        rubric_id=rubric.rubric_id,
-        content=None,
-        change_description="No content change"
-    )
-    pp.pprint(updated_rubric_no_content.__dict__ if updated_rubric_no_content else None)
+    # print("--- Testing Update Rubric (No Content Change) ---")
+    # updated_rubric_no_content = update_rubric(
+    #     db=db,
+    #     rubric_id=rubric.rubric_id,
+    #     content=None,
+    #     change_description="No content change"
+    # )
+    # pp.pprint(updated_rubric_no_content.__dict__ if updated_rubric_no_content else None)
 
-    print("--- Testing Update Rubric via Chat ---")
-    chat_updated_rubric = update_rubric_via_chat(
-        db=db,
-        rubric_id=rubric.rubric_id,
-        content={"criteria": ["Skill A", "Skill B", "Skill C", "Skill D"]}
-    )
-    pp.pprint(chat_updated_rubric.__dict__ if chat_updated_rubric else None)
+    # print("--- Testing Update Rubric via Chat ---")
+    # chat_updated_rubric = update_rubric_via_chat(
+    #     db=db,
+    #     rubric_id=rubric.rubric_id,
+    #     content={"criteria": ["Skill A", "Skill B", "Skill C", "Skill D"]}
+    # )
+    # pp.pprint(chat_updated_rubric.__dict__ if chat_updated_rubric else None)
 
-    print("--- Testing List Rubrics ---")
-    rubric_list = list_rubrics(db=db, skip=0, limit=10)
-    pp.pprint(rubric_list)
+    # print("--- Testing List Rubrics ---")
+    # rubric_list = list_rubrics(db=db, skip=0, limit=10)
+    # pp.pprint(rubric_list)
 
-    print("--- Testing Get Rubric History ---")
-    rubric_history = get_rubric_history(db=db, rubric_id=rubric.rubric_id, skip=0, limit=10)
-    for rh in rubric_history:
-        pp.pprint(rh.__dict__)
+    # print("--- Testing Get Rubric History ---")
+    # rubric_history = get_rubric_history(db=db, rubric_id=rubric.rubric_id, skip=0, limit=10)
+    # for rh in rubric_history:
+    #     pp.pprint(rh.__dict__)
 
-    print("--- Testing Create Shared Link ---")
-    shared_link = create_shared_link(db=db, rubric_id=rubric.rubric_id)
-    pp.pprint(shared_link.__dict__)
+    # print("--- Testing Create Shared Link ---")
+    # shared_link = create_shared_link(db=db, rubric_id=rubric.rubric_id)
+    # pp.pprint(shared_link.__dict__)
 
-    print("--- Testing Get Shared Link ---")
-    fetched_link = get_shared_link(db=db, token=shared_link.token)
-    pp.pprint(fetched_link.__dict__ if fetched_link else None)
+    # print("--- Testing Get Shared Link ---")
+    # fetched_link = get_shared_link(db=db, token=shared_link.token)
+    # pp.pprint(fetched_link.__dict__ if fetched_link else None)
 
     db.close()

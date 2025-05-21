@@ -48,9 +48,10 @@ class Rubric(Base):
     __tablename__ = "rubrics"
     
     rubric_id = Column(String(36), primary_key=True, default=generate_uuid)
-    jd_document_id = Column(String(36), ForeignKey("documents.doc_id"), nullable=True)
+    jd_document_id = Column(String(36), ForeignKey("documents.doc_id"), nullable=False)
     resume_document_id = Column(String(36), ForeignKey("documents.doc_id"), nullable=True)
-    content = Column(JSON, nullable=False)
+    content = Column(Text, nullable=False)
+    conversation = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
@@ -75,7 +76,6 @@ class RubricHistory(Base):
     rubric_id = Column(String(36), ForeignKey("rubrics.rubric_id"), nullable=False)
     content = Column(JSON, nullable=False)
     change_type = Column(String(20), nullable=False)  # 'created', 'updated', 'chat'
-    change_description = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # Relationships
@@ -109,3 +109,4 @@ class SharedLink(Base):
     
     def __repr__(self):
         return f"<SharedLink(id='{self.link_id}', rubric_id='{self.rubric_id}', token='{self.token}')>"
+    
