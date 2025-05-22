@@ -17,10 +17,9 @@ from app.db_ops import crud
 from app.services.file_upload_ops import _process_file_upload, _process_text_upload
 from app.services.llm_rubric_ops import RubricGenerator
 
-# Initialize router
+
 router = APIRouter()
 
-# Initialize logger
 logger = get_logger(__name__)
 
 # Upload Routes
@@ -82,8 +81,6 @@ async def create_rubric(
     rubric_create: RubricCreate,
     db: Session = Depends(get_db)
 ):
-
-
     resume_document = None
     
     if not rubric_create.jd_document_id:
@@ -129,14 +126,7 @@ async def chat_with_rubric(
     chat_request: RubricChatRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    Update rubric through chat with LLM
-    
-    This endpoint allows updating a rubric through a chat-like interaction
-    with an LLM. The user can provide feedback or requests, and the LLM
-    will update the rubric accordingly.
-    """
-    # Retrieve the rubric
+
     db_rubric = crud.get_rubric(db, chat_request.rubric_id)
     
     if not db_rubric:
@@ -145,23 +135,8 @@ async def chat_with_rubric(
             detail=f"Rubric with ID {chat_request.rubric_id} not found"
         )
     
-    # TODO: Update rubric using LLM
-    # For now, just update the rubric with a mock change
-    current_content = db_rubric.content
-    
-    # Make a simple change to the content
-    if "sections" in current_content and len(current_content["sections"]) > 0:
-        section = current_content["sections"][0]
-        if "items" in section and len(section["items"]) > 0:
-            item = section["items"][0]
-            item["description"] = f"Updated based on chat: {chat_request.message}"
-    
-    # Update the rubric using CRUD operation
-    updated_rubric = crud.update_rubric_via_chat(
-        db=db,
-        rubric_id=chat_request.rubric_id,
-        content=current_content
-    )
+    rubric_generator = RubricGenerator(db=db)
+    updated_rubric = rubric_generator.rubric_chat(chat_request=chat_request)
     
     return updated_rubric
 

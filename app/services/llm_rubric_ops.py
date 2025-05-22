@@ -17,6 +17,7 @@ from app.logger import get_logger
 from app.constants import Constants
 from app.db_ops import crud
 from app.db_ops.models import Document
+from app.api.v1.datamodels import RubricChatRequest
 
 logger = get_logger(__name__)
 
@@ -109,13 +110,19 @@ class RubricGenerator:
 
         return rubric_record
 
-    def rubric_modifications(self, conversation_id: str, user_message: str) -> Dict[str, Any]:
-        logger.info(f"Modifying rubric with conversation_id: {conversation_id}")
+    def rubric_chat(self, chat_request : RubricChatRequest) -> Dict[str, Any]:
 
-        rubric_record = crud.get_rubric(db=self.db, rubric_id=conversation_id)
+
+        logger.info(f"Chatting with rubric ID: {chat_request.rubric_id} \
+                    Message: {chat_request.message}")
+
+        rubric_record = crud.get_rubric(db=self.db, rubric_id=chat_request.rubric_id)
+
         if not rubric_record:
-            logger.error(f"Rubric not found for ID: {conversation_id}")
-            raise ValueError(f"Rubric not found for ID: {conversation_id}")
+            logger.error(f"Rubric not found for ID: {chat_request.rubric_id}")
+            raise ValueError(f"Rubric not found for ID: {chat_request.rubric_id}")
+
+        logger.debug(f"Rubric found: {rubric_record.rubric_id}")
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", "You are a helpful AI assistant for generating rubrics."),
@@ -125,7 +132,13 @@ class RubricGenerator:
 
         memory = ConversationBufferMemory(return_messages=True, memory_key="history")
 
-        saved_history = rubric_record.content.get('conversation_history', [])
+        try:
+            saved_history = rubric_record.conversation
+            logger.debug(f"Loaded conversation history: {saved_history}")
+        except Exception as e:
+            logger.error(f"Error loading conversation history: {e}")
+            saved_history = None
+
         if saved_history:
             logger.debug("Restoring previous conversation history to memory")
             loaded_messages = [load(msg_dict) for msg_dict in saved_history]
@@ -140,7 +153,7 @@ class RubricGenerator:
 
         # Continue the conversation
         logger.debug("Calling LLM to continue conversation for rubric modification")
-        response = conversation_chain.predict(input=user_message)
+        response = conversation_chain.predict(input=chat_request.message)
         logger.info("Received modified rubric response from LLM")
 
         # Get updated conversation history
@@ -149,71 +162,109 @@ class RubricGenerator:
 
         # Update rubric in database
         logger.debug("Updating rubric in database with new conversation and response")
+
         updated_rubric = crud.update_rubric_via_chat(
             db=self.db,
-            rubric_id=rubric_record.id,
-            content={
-                "response": response,
-                "conversation_history": serialized_messages
-            },
-            message=user_message
+            rubric_id=rubric_record.rubric_id,
+            content=response,
+            conversation=serialized_messages
         )
-        logger.info(f"Rubric record updated via chat. ID: {updated_rubric.id}")
+        logger.info(f"Rubric record updated via chat. ID: {updated_rubric.rubric_id}")
 
-        return {
-            "response": response,
-            "conversation_id": conversation_id,
-            "rubric_id": updated_rubric.id
-        }
+        return updated_rubric
 
 if __name__ == "__main__":
     from app.db_ops.database import SessionLocal
+    import pprint
+    from uuid import uuid4
+
+    # Pretty printer for better output formatting
+    pp = pprint.PrettyPrinter(indent=2)
     db = SessionLocal()
+    
     try:
         logger.info("Starting RubricGenerator main test block")
+        
+        # Create test documents
+        logger.debug("Creating test JD document")
         jd_doc = Document(
-            doc_id=str(uuid.uuid4()),
-            filename=str(uuid.uuid4()) + "jd.txt",
-            original_filename="jd.txt",
-            file_path="/tmp/jd.txt",
+            doc_id=str(uuid4()),
+            filename=f"{uuid4()}_jd.txt",
+            original_filename="sample_jd.txt",
+            file_path="/tmp/sample_jd.txt",
             content_type="text/plain",
             document_type="jd",
-            extracted_text="We are looking for a highly skilled and experienced software engineer to join our team. The ideal candidate will have a strong background in Python and experience with various frameworks. Responsibilities include designing, developing, and testing software applications."
-        )
-        resume_doc = Document(
-            doc_id=str(uuid.uuid4()),
-            filename=str(uuid.uuid4()) + "resume.txt",
-            original_filename="resume.txt",
-            file_path="/tmp/resume.txt",
-            content_type="text/plain",
-            document_type="resume",
-            extracted_text="John Doe\nSoftware Engineer\n10 years of experience in software development. Proficient in Python, Java, and C++. Experience with various frameworks and technologies."
+            extracted_text="""
+            Senior Software Engineer Position
+            Requirements:
+            - 5+ years experience in Python development
+            - Strong background in web frameworks (Django/Flask)
+            - Experience with cloud platforms (AWS/GCP)
+            - Knowledge of CI/CD practices
+            """
         )
 
+        logger.debug("Creating test Resume document")
+        resume_doc = Document(
+            doc_id=str(uuid4()),
+            filename=f"{uuid4()}_resume.txt",
+            original_filename="sample_resume.txt",
+            file_path="/tmp/sample_resume.txt",
+            content_type="text/plain",
+            document_type="resume",
+            extracted_text="""
+            John Smith
+            Senior Software Engineer
+            
+            Experience:
+            - 7 years Python development
+            - Expert in Django and Flask
+            - AWS certified developer
+            - Implemented CI/CD pipelines for multiple projects
+            """
+        )
+
+        # Add documents to database
+        logger.debug("Adding documents to database")
         db.add(jd_doc)
         db.add(resume_doc)
         db.commit()
         logger.info(f"Created test JD Document: {jd_doc.doc_id}")
         logger.info(f"Created test Resume Document: {resume_doc.doc_id}")
 
+        # Initialize RubricGenerator
+        logger.debug("Initializing RubricGenerator")
         rubric_generator = RubricGenerator(db=db)
 
-        logger.info("Generating rubric with resume Document objects")
+        # Test rubric generation with both documents
+        logger.info("Testing rubric generation with both JD and Resume")
         result_with_resume = rubric_generator.generate_rubric(jd=jd_doc, resume=resume_doc)
-        print("Rubric with Resume:", result_with_resume)
+        logger.debug("Printing rubric with resume result:")
+        pp.pprint(result_with_resume.__dict__)
 
-        logger.info("Generating rubric with only JD Document object")
+        # Test rubric generation with only JD
+        logger.info("Testing rubric generation with only JD")
         result_without_resume = rubric_generator.generate_rubric(jd=jd_doc)
-        print("Rubric without Resume:", result_without_resume)
+        logger.debug("Printing rubric without resume result:")
+        pp.pprint(result_without_resume.__dict__)
 
-        logger.info("Testing rubric modification")
-        conversation_id = result_with_resume["rubric_id"]
-        user_message = "Can you add more details about the experience required?"
-        modified_rubric = rubric_generator.rubric_modifications(conversation_id=conversation_id, user_message=user_message)
-        print("Modified Rubric:", modified_rubric)
+        # Test rubric chat/modification
+        logger.info("Testing rubric chat modification")
+        chat_request = RubricChatRequest(
+            rubric_id=result_with_resume.rubric_id,
+            message="Can you provide more details about the required cloud experience?"
+        )
+        
+        modified_rubric = rubric_generator.rubric_chat(chat_request)
+        logger.debug("Printing modified rubric result:")
+        pp.pprint(modified_rubric)
 
+    except FileNotFoundError as e:
+        logger.error(f"Template file not found: {e}")
+    except ValueError as e:
+        logger.error(f"Invalid input or data: {e}")
     except Exception as e:
-        logger.error(f"An error occurred in main: {e}")
+        logger.error(f"Unexpected error in main: {str(e)}", exc_info=True)
     finally:
+        logger.info("Cleaning up database session")
         db.close()
-        logger.info("Database session closed in main block")

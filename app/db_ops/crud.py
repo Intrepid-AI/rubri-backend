@@ -19,21 +19,7 @@ def create_document(
     document_type: str,
     extracted_text: Optional[str] = None
 ) -> models.Document:
-    """
-    Create a new document record in the database.
-    
-    Args:
-        db: Database session
-        filename: Stored filename
-        original_filename: Original filename
-        file_path: Path to the stored file
-        content_type: MIME type of the file
-        document_type: Type of document (jd or resume)
-        extracted_text: Extracted text from the document (optional)
-        
-    Returns:
-        Created document record
-    """
+
     db_document = models.Document(
         doc_id=str(uuid.uuid4()),
         filename=filename,
@@ -52,16 +38,7 @@ def create_document(
     return db_document
 
 def get_document(db: Session, document_id: str) -> Optional[models.Document]:
-    """
-    Get a document by ID.
-    
-    Args:
-        db: Database session
-        document_id: Document ID
-        
-    Returns:
-        Document record or None if not found
-    """
+
     return db.query(models.Document).filter(models.Document.doc_id == document_id).first()
 
 def get_document_by_type(
@@ -69,17 +46,7 @@ def get_document_by_type(
     document_id: str, 
     document_type: str
 ) -> Optional[models.Document]:
-    """
-    Get a document by ID and type.
-    
-    Args:
-        db: Database session
-        document_id: Document ID
-        document_type: Document type (jd or resume)
-        
-    Returns:
-        Document record or None if not found
-    """
+
     return db.query(models.Document).filter(
         models.Document.doc_id == document_id
     ).first()
@@ -119,21 +86,7 @@ def create_rubric(
     jd_document_id: Optional[str] = None,
     resume_document_id: Optional[str] = None
 ) -> models.Rubric:
-    """
-    Create a new rubric record in the database.
-    
-    Args:
-        db: Database session
-        title: Rubric title
-        description: Rubric description
-        content: Rubric content as JSON
-        jd_document_id: ID of the JD document (optional)
-        resume_document_id: ID of the resume document (optional)
-        status: Rubric status (default: draft)
-        
-    Returns:
-        Created rubric record
-    """
+
     db_rubric = models.Rubric(
         rubric_id=str(uuid.uuid4()),
         content=content,
@@ -153,23 +106,15 @@ def create_rubric(
         db=db,
         rubric_id=db_rubric.rubric_id,
         content=content,
-        change_type=ChangeType.CREATED.value
+        change_type=ChangeType.CREATED.value,
+
     )
     
     logger.info(f"Created rubric record: {db_rubric.rubric_id}")
     return db_rubric
 
 def get_rubric(db: Session, rubric_id: str) -> Optional[models.Rubric]:
-    """
-    Get a rubric by ID.
-    
-    Args:
-        db: Database session
-        rubric_id: Rubric ID
-        
-    Returns:
-        Rubric record or None if not found
-    """
+
     return db.query(models.Rubric).filter(models.Rubric.rubric_id == rubric_id).first()
 
 def update_rubric(
@@ -221,20 +166,10 @@ def update_rubric(
 def update_rubric_via_chat(
     db: Session,
     rubric_id: str,
-    content: Dict[str, Any]
+    content: str,
+    conversation: List,
 ) -> Optional[models.Rubric]:
-    """
-    Update a rubric via chat.
-    
-    Args:
-        db: Database session
-        rubric_id: Rubric ID
-        content: New content
-        message: Chat message
-        
-    Returns:
-        Updated rubric record or None if not found
-    """
+
     db_rubric = get_rubric(db, rubric_id)
     if not db_rubric:
         logger.error(f"Rubric not found: {rubric_id}")
@@ -242,6 +177,7 @@ def update_rubric_via_chat(
     
     # Update content
     db_rubric.content = content
+    db_rubric.conversation = conversation
     db_rubric.updated_at = datetime.utcnow()
     
     db.commit()
@@ -302,19 +238,7 @@ def create_rubric_history(
     content: Dict[str, Any],
     change_type: str,
 ) -> models.RubricHistory:
-    """
-    Create a new rubric history record.
-    
-    Args:
-        db: Database session
-        rubric_id: Rubric ID
-        content: Rubric content at the time of the change
-        change_type: Type of change (created, updated, chat)
-        change_description: Description of the change (optional)
-        
-    Returns:
-        Created rubric history record
-    """
+
     db_history = models.RubricHistory(
         rubhis_id=str(uuid.uuid4()),
         rubric_id=rubric_id,
