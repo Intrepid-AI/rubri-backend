@@ -30,12 +30,7 @@ async def upload_jd_file(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    """
-    Upload a job description file (PDF, Text, Word)
-    
-    This endpoint allows uploading a job description document in various formats.
-    The text will be extracted from the document in the background.
-    """
+
     return await _process_file_upload(
         file=file,
         document_type=DocumentType.JD,
@@ -49,12 +44,7 @@ async def upload_resume_file(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    """
-    Upload a resume file (PDF, Text, Word)
-    
-    This endpoint allows uploading a resume document in various formats.
-    The text will be extracted from the document in the background.
-    """
+
     return await _process_file_upload(
         file=file,
         document_type=DocumentType.RESUME,
@@ -67,11 +57,7 @@ async def upload_jd_text(
     text_upload: TextUpload,
     db: Session = Depends(get_db)
 ):
-    """
-    Upload job description as plain text
-    
-    This endpoint allows uploading a job description as plain text.
-    """
+
     return await _process_text_upload(
         text=text_upload.text,
         document_type=DocumentType.JD,
@@ -83,11 +69,7 @@ async def upload_resume_text(
     text_upload: TextUpload,
     db: Session = Depends(get_db)
 ):
-    """
-    Upload resume as plain text
-    
-    This endpoint allows uploading a resume as plain text.
-    """
+
     return await _process_text_upload(
         text=text_upload.text,
         document_type=DocumentType.RESUME,
@@ -100,12 +82,7 @@ async def create_rubric(
     rubric_create: RubricCreate,
     db: Session = Depends(get_db)
 ):
-    """
-    Create a new rubric based on JD and/or resume
-    
-    This endpoint generates an evaluation rubric based on the provided
-    job description and/or resume documents.
-    """
+
 
     resume_document = None
     
@@ -138,7 +115,6 @@ async def create_rubric(
                 detail=f"Resume document with ID {rubric_create.resume_document_id} not found"
             )
     
-    # Extract text from documents
     jd_text = jd_document.extracted_text
     resume_text = resume_document.extracted_text if resume_document else None
     
