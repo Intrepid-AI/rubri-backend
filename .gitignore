@@ -172,3 +172,15 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# db
+*.db 
+
+# folders
+received_data
+
+.claude 
+
+INTEGRATION_REPORT.md
+

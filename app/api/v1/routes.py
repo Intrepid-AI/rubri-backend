@@ -7,7 +7,8 @@ from datetime import datetime
 from app.api.v1.datamodels import (
     DocumentType, DocumentResponse, TextUpload,
     RubricCreate, RubricUpdate, RubricResponse, RubricChatRequest,
-    RubricListResponse, ExportLinkResponse, ErrorResponse
+    RubricListResponse, ExportLinkResponse, ErrorResponse,
+    QuestionGenerationCreate, QuestionGenerationResponse, QuickQuestionRequest
 )
 
 from app.constants import Constants
@@ -117,7 +118,8 @@ async def create_rubric(
     
     jd_document = crud.get_document_by_type(
         db=db,
-        document_id=rubric_create.jd_document_id
+        document_id=rubric_create.jd_document_id,
+        document_type=DocumentType.JD.value
     )
         
     if not jd_document:
@@ -189,6 +191,214 @@ async def create_rubric(
     import pprint
     pprint.pprint(dict_result_rubric, indent=2)
     return dict_result_rubric
+
+
+# Question Generation Routes
+@router.post("/questions/generate", response_model=QuestionGenerationResponse, tags=["Questions"])
+async def generate_interview_questions(
+    question_request: QuestionGenerationCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate comprehensive interview questions using multi-agent system
+    
+    This endpoint uses the uploaded documents to generate a complete
+    interview evaluation with technical questions, expected responses,
+    and interviewer guidance.
+    """
+    try:
+        # Import here to avoid circular imports
+        from app.services.qgen.orchestrator.multi_agent_system import create_technical_interview_system
+        from app.services.qgen.models.schemas import LLMProvider
+        
+        # Get documents
+        resume_document = None
+        jd_document = None
+        resume_text = ""
+        jd_text = ""
+        
+        if question_request.jd_document_id:
+            jd_document = crud.get_document_by_type(
+                db=db,
+                document_id=question_request.jd_document_id,
+                document_type=DocumentType.JD.value
+            )
+            if not jd_document:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"JD document with ID {question_request.jd_document_id} not found"
+                )
+            jd_text = jd_document.extracted_text or ""
+        
+        if question_request.resume_document_id:
+            resume_document = crud.get_document_by_type(
+                db=db,
+                document_id=question_request.resume_document_id,
+                document_type=DocumentType.RESUME.value
+            )
+            if not resume_document:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Resume document with ID {question_request.resume_document_id} not found"
+                )
+            resume_text = resume_document.extracted_text or ""
+        
+        if not resume_text and not jd_text:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one document (JD or Resume) must be provided with extracted text"
+            )
+        
+        # Map LLM provider
+        provider_mapping = {
+            "openai": LLMProvider.OPENAI,
+            "gemini": LLMProvider.GEMINI,
+            "groq": LLMProvider.GROQ,
+            "azure_openai": LLMProvider.AZURE_OPENAI,
+            "portkey": LLMProvider.PORTKEY
+        }
+        
+        llm_provider = provider_mapping.get(question_request.llm_provider, LLMProvider.OPENAI)
+        
+        # Create multi-agent system
+        interview_system = create_technical_interview_system(
+            llm_provider=llm_provider,
+            llm_model="gpt-4.1" if llm_provider == LLMProvider.OPENAI else "gemini-2.0-flash-001"
+        )
+        
+        # Generate interview questions
+        result = interview_system.generate_technical_interview(
+            resume_text=resume_text,
+            job_description=jd_text,
+            position_title=question_request.position_title,
+            thread_id=f"api_{question_request.jd_document_id or question_request.resume_document_id}"
+        )
+        
+        # Store result in database if successful
+        if result["success"]:
+            try:
+                # Create rubric record with question generation results
+                db_rubric = crud.create_rubric(
+                    db=db,
+                    title=f"Interview Questions: {question_request.position_title}",
+                    description=f"Generated interview questions and evaluation for {question_request.position_title}",
+                    content={
+                        "type": "interview_questions",
+                        "evaluation": result.get("evaluation_object"),
+                        "formatted_report": result.get("formatted_report"),
+                        "agent_performance": result.get("agent_performance"),
+                        "processing_time": result.get("processing_time"),
+                        "input_scenario": result.get("input_scenario")
+                    },
+                    jd_document_id=jd_document.doc_id if jd_document else None,
+                    resume_document_id=resume_document.doc_id if resume_document else None,
+                    status="completed"
+                )
+                result["rubric_id"] = db_rubric.rubric_id
+            except Exception as e:
+                logger.warning(f"Failed to store question generation result in database: {e}")
+        
+        return QuestionGenerationResponse(**result)
+        
+    except Exception as e:
+        logger.error(f"Error generating interview questions: {str(e)}")
+        return QuestionGenerationResponse(
+            success=False,
+            processing_time=0,
+            position_title=question_request.position_title,
+            input_scenario="error",
+            error=str(e)
+        )
+
+
+
+
+
+@router.post("/questions/generate/quick", response_model=QuestionGenerationResponse, tags=["Questions"])
+async def generate_quick_questions(
+    quick_request: QuickQuestionRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate interview questions from raw text (without uploading files)
+    
+    This endpoint allows direct text input for quick question generation
+    without requiring file uploads.
+    """
+    try:
+        # Import here to avoid circular imports
+        from app.services.qgen.orchestrator.multi_agent_system import create_technical_interview_system
+        from app.services.qgen.models.schemas import LLMProvider
+        
+        # Validate input
+        if not quick_request.resume_text and not quick_request.job_description:
+            raise HTTPException(
+                status_code=400,
+                detail="Either resume_text or job_description (or both) must be provided"
+            )
+        
+        # Map LLM provider
+        provider_mapping = {
+            "openai": LLMProvider.OPENAI,
+            "gemini": LLMProvider.GEMINI,
+            "groq": LLMProvider.GROQ,
+            "azure_openai": LLMProvider.AZURE_OPENAI,
+            "portkey": LLMProvider.PORTKEY
+        }
+        
+        llm_provider = provider_mapping.get(quick_request.llm_provider, LLMProvider.GEMINI)
+        
+        # Create multi-agent system
+        interview_system = create_technical_interview_system(
+            llm_provider=llm_provider,
+            llm_model="gpt-4o-mini" if llm_provider == LLMProvider.OPENAI else "gemini-2.0-flash-001"
+        )
+        
+        # Generate interview questions
+        result = interview_system.generate_technical_interview(
+            resume_text=quick_request.resume_text or "",
+            job_description=quick_request.job_description or "",
+            position_title=quick_request.position_title,
+            thread_id=f"quick_{hash(str(quick_request.resume_text) + str(quick_request.job_description)) % 10000}"
+        )
+        
+        # Store result in database if successful
+        if result["success"]:
+            try:
+                # Create rubric record with question generation results
+                db_rubric = crud.create_rubric(
+                    db=db,
+                    title=f"Quick Interview Questions: {quick_request.position_title}",
+                    description=f"Generated interview questions from direct text input for {quick_request.position_title}",
+                    content={
+                        "type": "quick_interview_questions",
+                        "evaluation": result.get("evaluation_object"),
+                        "formatted_report": result.get("formatted_report"),
+                        "agent_performance": result.get("agent_performance"),
+                        "processing_time": result.get("processing_time"),
+                        "input_scenario": result.get("input_scenario"),
+                        "input_texts": {
+                            "resume_text": quick_request.resume_text,
+                            "job_description": quick_request.job_description
+                        }
+                    },
+                    status="completed"
+                )
+                result["rubric_id"] = db_rubric.rubric_id
+            except Exception as e:
+                logger.warning(f"Failed to store quick question generation result in database: {e}")
+        
+        return QuestionGenerationResponse(**result)
+        
+    except Exception as e:
+        logger.error(f"Error generating quick interview questions: {str(e)}")
+        return QuestionGenerationResponse(
+            success=False,
+            processing_time=0,
+            position_title=quick_request.position_title,
+            input_scenario="error",
+            error=str(e)
+        )
 
 @router.post("/rubric/chat", response_model=RubricResponse, tags=["Rubric"])
 async def chat_with_rubric(

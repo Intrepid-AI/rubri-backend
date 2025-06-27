@@ -115,17 +115,20 @@ def update_document_text(
 def create_rubric(
     db: Session,
     content: Dict[str, Any],
+    title: str,
+    description: Optional[str] = None,
     jd_document_id: Optional[str] = None,
     resume_document_id: Optional[str] = None,
+    status: str = "draft"
 ) -> models.Rubric:
     """
     Create a new rubric record in the database.
     
     Args:
         db: Database session
-        title: Rubric title
-        description: Rubric description
         content: Rubric content as JSON
+        title: Rubric title
+        description: Rubric description (optional)
         jd_document_id: ID of the JD document (optional)
         resume_document_id: ID of the resume document (optional)
         status: Rubric status (default: draft)
@@ -135,6 +138,9 @@ def create_rubric(
     """
     db_rubric = models.Rubric(
         rubric_id=str(uuid.uuid4()),
+        title=title,
+        description=description,
+        status=status,
         content=content,
         jd_document_id=jd_document_id,
         resume_document_id=resume_document_id,
@@ -171,7 +177,10 @@ def get_rubric(db: Session, rubric_id: str) -> Optional[models.Rubric]:
 def update_rubric(
     db: Session,
     rubric_id: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
     content: Optional[Dict[str, Any]] = None,
+    status: Optional[str] = None,
     change_description: str = "Manual update"
 ) -> Optional[models.Rubric]:
     """
@@ -194,8 +203,14 @@ def update_rubric(
         logger.error(f"Rubric not found: {rubric_id}")
         return None
     
+    if title is not None:
+        db_rubric.title = title
+    if description is not None:
+        db_rubric.description = description
     if content is not None:
         db_rubric.content = content
+    if status is not None:
+        db_rubric.status = status
     
     db_rubric.updated_at = datetime.utcnow()
     
@@ -423,6 +438,8 @@ if __name__ == "__main__":
     print("--- Testing Rubric Creation ---")
     rubric = create_rubric(
         db=db,
+        title="Test Rubric",
+        description="Test rubric description",
         content={"criteria": ["Skill A", "Skill B"]},
         jd_document_id=doc.doc_id
     )

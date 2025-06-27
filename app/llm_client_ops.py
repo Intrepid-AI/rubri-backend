@@ -14,8 +14,6 @@ from langchain_core.exceptions import LangChainException
 
 # Provider-specific imports
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_groq import ChatGroq
 
 # Optional Portkey support
 try:
@@ -213,10 +211,12 @@ class LLM_Client_Ops:
                                                    **constructor_params)
 
             elif provider == ModelProvider.GEMINI:
+                from langchain_google_genai import ChatGoogleGenerativeAI
                 api_key = os.environ.get("GOOGLE_API_KEY")
                 self.llm_client = ChatGoogleGenerativeAI(google_api_key=api_key, **constructor_params)
 
             elif provider == ModelProvider.GROQ:
+                from langchain_groq import ChatGroq
                 api_key = os.environ.get("GROQ_API_KEY")
                 self.llm_client = ChatGroq(api_key=api_key, **constructor_params)
 

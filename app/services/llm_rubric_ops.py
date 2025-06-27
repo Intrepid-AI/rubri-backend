@@ -116,7 +116,7 @@ class RubricGenerator:
         return {
             "response": response,
             "conversation_id": conversation_id,
-            "rubric_id": rubric_record.id
+            "rubric_id": rubric_record.rubric_id
         }
 
 
@@ -169,18 +169,17 @@ class RubricGenerator:
         # Update rubric in database
         updated_rubric = crud.update_rubric_via_chat(
             db=self.db,
-            rubric_id=rubric_record.id,
+            rubric_id=rubric_record.rubric_id,
             content={
                 "response": response,
                 "conversation_history": serialized_messages
-            },
-            message=user_message
+            }
         )
 
         return {
             "response": response,
             "conversation_id": conversation_id,
-            "rubric_id": updated_rubric.id
+            "rubric_id": updated_rubric.rubric_id
         }
 
 if __name__ == "__main__":

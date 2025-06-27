@@ -48,6 +48,9 @@ class Rubric(Base):
     __tablename__ = "rubrics"
     
     rubric_id = Column(String(36), primary_key=True, default=generate_uuid)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="draft")
     jd_document_id = Column(String(36), ForeignKey("documents.doc_id"), nullable=True)
     resume_document_id = Column(String(36), ForeignKey("documents.doc_id"), nullable=True)
     content = Column(JSON, nullable=False)
@@ -60,7 +63,7 @@ class Rubric(Base):
     history = relationship("RubricHistory", back_populates="rubric", cascade="all, delete-orphan")
     
     def __repr__(self):
-        return f"<Rubric(id='{self.rubric_id}', content='{self.content}')>"
+        return f"<Rubric(id='{self.rubric_id}', title='{self.title}', status='{self.status}')>"
 
 class RubricHistory(Base):
     """
