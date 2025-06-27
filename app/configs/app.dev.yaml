@@ -79,3 +79,7 @@ llm_providers:
 prompts:
   prompt_jd : rubric_jd.md
   prompt_jd_res : rubric_jd_res.md
+
+development:
+  use_mock_responses: true  
+  mock_response_file: "app/api/v1/sample_responce/response.json"

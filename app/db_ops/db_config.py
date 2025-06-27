@@ -20,11 +20,23 @@ DEFAULT_CONFIG = {
         "username": "postgres",
         "password": "password",
         "database": "rubri",
+    },
+    "development": {
+        "use_mock_responses": False,
+        "mock_response_file": Constants.MOCK_RESPONSE_FILE.value
     }
 }
 
 def load_database_config():
     """Load database configuration from environment variables and YAML."""
+    config = DEFAULT_CONFIG.copy()
+    _load_yaml_config(config)
+    _override_from_env(config)
+    _setup_database_url(config)
+    return config
+
+def load_app_config():
+    """Load complete application configuration including development settings."""
     config = DEFAULT_CONFIG.copy()
     _load_yaml_config(config)
     _override_from_env(config)
@@ -50,6 +62,7 @@ def _update_dict_recursive(target, source):
             target[key] = value
 
 def _override_from_env(config):
+    # Database environment overrides
     if os.getenv("DB_TYPE"):
         config["database"]["type"] = os.getenv("DB_TYPE")
     if os.getenv("DB_SQLITE_PATH"):
@@ -67,6 +80,12 @@ def _override_from_env(config):
         config["database"]["password"] = os.getenv("DB_PASSWORD")
     if os.getenv("DB_NAME"):
         config["database"]["database"] = os.getenv("DB_NAME")
+    
+    # Development environment overrides
+    if os.getenv("DEVELOPMENT_USE_MOCK_RESPONSES"):
+        config["development"]["use_mock_responses"] = os.getenv("DEVELOPMENT_USE_MOCK_RESPONSES").lower() == "true"
+    if os.getenv("DEVELOPMENT_MOCK_RESPONSE_FILE"):
+        config["development"]["mock_response_file"] = os.getenv("DEVELOPMENT_MOCK_RESPONSE_FILE")
 
 def _setup_database_url(config):
     db_config = config["database"]

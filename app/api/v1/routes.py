@@ -15,8 +15,10 @@ from app.constants import Constants
 from app.logger import get_logger
 from app.db_ops.database import get_db
 from app.db_ops import crud
+from app.db_ops.db_config import load_app_config
 from app.services.file_upload_ops import _process_file_upload, _process_text_upload
 from app.services.llm_rubric_ops import RubricGenerator
+from app.services.mock_response_service import mock_response_service
 
 # Initialize router
 router = APIRouter()
@@ -207,6 +209,75 @@ async def generate_interview_questions(
     and interviewer guidance.
     """
     try:
+        # Check if mock responses are enabled in development
+        app_config = load_app_config()
+        use_mock_responses = app_config.get("development", {}).get("use_mock_responses", False)
+        
+        if use_mock_responses:
+            logger.info("Using mock response for development")
+            
+            # Determine input scenario based on provided documents
+            input_scenario = "mock"
+            if question_request.jd_document_id and question_request.resume_document_id:
+                input_scenario = "both"
+            elif question_request.jd_document_id:
+                input_scenario = "jd_only"
+            elif question_request.resume_document_id:
+                input_scenario = "resume_only"
+            
+            # Get mock response
+            mock_result = mock_response_service.get_mock_question_response(
+                position_title=question_request.position_title,
+                input_scenario=input_scenario,
+                jd_document_id=question_request.jd_document_id,
+                resume_document_id=question_request.resume_document_id
+            )
+            
+            # Store mock result in database if successful
+            if mock_result.get("success", True):
+                try:
+                    # Get documents for database storage (if they exist)
+                    resume_document = None
+                    jd_document = None
+                    
+                    if question_request.jd_document_id:
+                        jd_document = crud.get_document_by_type(
+                            db=db,
+                            document_id=question_request.jd_document_id,
+                            document_type=DocumentType.JD.value
+                        )
+                    
+                    if question_request.resume_document_id:
+                        resume_document = crud.get_document_by_type(
+                            db=db,
+                            document_id=question_request.resume_document_id,
+                            document_type=DocumentType.RESUME.value
+                        )
+                    
+                    # Create rubric record with mock results
+                    db_rubric = crud.create_rubric(
+                        db=db,
+                        title=f"Mock Interview Questions: {question_request.position_title}",
+                        description=f"Mock generated interview questions for development: {question_request.position_title}",
+                        content={
+                            "type": "mock_interview_questions",
+                            "evaluation": mock_result.get("evaluation_object"),
+                            "formatted_report": mock_result.get("formatted_report"),
+                            "agent_performance": mock_result.get("agent_performance"),
+                            "processing_time": mock_result.get("processing_time"),
+                            "input_scenario": mock_result.get("input_scenario")
+                        },
+                        jd_document_id=jd_document.doc_id if jd_document else None,
+                        resume_document_id=resume_document.doc_id if resume_document else None,
+                        status="completed"
+                    )
+                    mock_result["rubric_id"] = db_rubric.rubric_id
+                except Exception as e:
+                    logger.warning(f"Failed to store mock question generation result in database: {e}")
+            
+            return QuestionGenerationResponse(**mock_result)
+        
+        # Continue with normal processing if mock responses are disabled
         # Import here to avoid circular imports
         from app.services.qgen.orchestrator.multi_agent_system import create_technical_interview_system
         from app.services.qgen.models.schemas import LLMProvider
@@ -326,6 +397,57 @@ async def generate_quick_questions(
     without requiring file uploads.
     """
     try:
+        # Check if mock responses are enabled in development
+        app_config = load_app_config()
+        use_mock_responses = app_config.get("development", {}).get("use_mock_responses", False)
+        
+        if use_mock_responses:
+            logger.info("Using mock response for quick question generation in development")
+            
+            # Determine input scenario based on provided text
+            input_scenario = "quick_mock"
+            if quick_request.resume_text and quick_request.job_description:
+                input_scenario = "quick_both"
+            elif quick_request.job_description:
+                input_scenario = "quick_jd_only"
+            elif quick_request.resume_text:
+                input_scenario = "quick_resume_only"
+            
+            # Get mock response
+            mock_result = mock_response_service.get_mock_question_response(
+                position_title=quick_request.position_title,
+                input_scenario=input_scenario
+            )
+            
+            # Store mock result in database if successful
+            if mock_result.get("success", True):
+                try:
+                    # Create rubric record with mock results
+                    db_rubric = crud.create_rubric(
+                        db=db,
+                        title=f"Mock Quick Interview Questions: {quick_request.position_title}",
+                        description=f"Mock generated interview questions from direct text input for development: {quick_request.position_title}",
+                        content={
+                            "type": "mock_quick_interview_questions",
+                            "evaluation": mock_result.get("evaluation_object"),
+                            "formatted_report": mock_result.get("formatted_report"),
+                            "agent_performance": mock_result.get("agent_performance"),
+                            "processing_time": mock_result.get("processing_time"),
+                            "input_scenario": mock_result.get("input_scenario"),
+                            "input_texts": {
+                                "resume_text": quick_request.resume_text,
+                                "job_description": quick_request.job_description
+                            }
+                        },
+                        status="completed"
+                    )
+                    mock_result["rubric_id"] = db_rubric.rubric_id
+                except Exception as e:
+                    logger.warning(f"Failed to store mock quick question generation result in database: {e}")
+            
+            return QuestionGenerationResponse(**mock_result)
+        
+        # Continue with normal processing if mock responses are disabled
         # Import here to avoid circular imports
         from app.services.qgen.orchestrator.multi_agent_system import create_technical_interview_system
         from app.services.qgen.models.schemas import LLMProvider

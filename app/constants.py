@@ -33,3 +33,7 @@ class Constants(Enum):
     LLM_TEMPERATURE = 0.2
     SENSITIVE_FILTERS = ["password", "api_key"]
     PROMPTS_DIR = os.path.join("app", "configs", "prompt_templates")
+    
+    # Development constants
+    DEVELOPMENT_USE_MOCK_RESPONSES = False
+    MOCK_RESPONSE_FILE = os.path.join("app", "api", "v1", "sample_responce", "response.json")
