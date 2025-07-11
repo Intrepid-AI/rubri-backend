@@ -3,25 +3,34 @@ from fastapi.responses import JSONResponse, FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime
+import uuid
 
 from app.api.v1.datamodels import (
     DocumentType, DocumentResponse, TextUpload,
     RubricCreate, RubricUpdate, RubricResponse, RubricChatRequest,
     RubricListResponse, ExportLinkResponse, ErrorResponse,
-    QuestionGenerationCreate, QuestionGenerationResponse, QuickQuestionRequest
+    QuestionGenerationCreate, QuestionGenerationResponse, QuickQuestionRequest,
+    AsyncQuestionGenerationRequest, AsyncQuickQuestionRequest,
+    TaskStatusResponse, TaskInitiationResponse, TaskStatusEnum
 )
 
 from app.constants import Constants
 from app.logger import get_logger
 from app.db_ops.database import get_db
 from app.db_ops import crud
+from app.db_ops.models import TaskStatus
 from app.db_ops.db_config import load_app_config
 from app.services.file_upload_ops import _process_file_upload, _process_text_upload
-from app.services.llm_rubric_ops import RubricGenerator
+# from app.services.llm_rubric_ops import RubricGenerator
 from app.services.mock_response_service import mock_response_service
+from app.auth.dependencies import get_optional_user, require_auth
+from app.api.v1.auth_routes import router as auth_router
 
 # Initialize router
 router = APIRouter()
+
+# Include auth routes
+router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -653,6 +662,303 @@ async def export_rubric_pdf(
         content={"detail": "PDF export not implemented yet"},
         status_code=501
     )
+
+# Async Question Generation Routes
+@router.post("/questions/generate/async", response_model=TaskInitiationResponse, tags=["Questions"])
+async def start_async_question_generation(
+    question_request: AsyncQuestionGenerationRequest,
+    current_user = Depends(get_optional_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Start async interview question generation with real-time progress updates
+    
+    This endpoint starts a background task for comprehensive interview question generation.
+    Returns a task ID that can be used to track progress via WebSocket connection.
+    """
+    try:
+        # Import Celery task
+        from app.tasks.question_generation_tasks import generate_interview_questions_async
+        
+        # Validate documents exist if provided
+        if question_request.jd_document_id:
+            jd_document = crud.get_document_by_type(
+                db=db,
+                document_id=question_request.jd_document_id,
+                document_type=DocumentType.JD.value
+            )
+            if not jd_document:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"JD document with ID {question_request.jd_document_id} not found"
+                )
+        
+        if question_request.resume_document_id:
+            resume_document = crud.get_document_by_type(
+                db=db,
+                document_id=question_request.resume_document_id,
+                document_type=DocumentType.RESUME.value
+            )
+            if not resume_document:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Resume document with ID {question_request.resume_document_id} not found"
+                )
+        
+        if not question_request.jd_document_id and not question_request.resume_document_id:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one document (JD or Resume) must be provided"
+            )
+        
+        # Determine user email for notifications
+        user_email = None
+        user_id = None
+        if current_user:
+            user_id = current_user.user_id
+            # Use authenticated user's email if notifications are enabled
+            if current_user.email_notifications_enabled == "true":
+                user_email = current_user.email
+                logger.info(f"Using authenticated user email for notifications: {user_email}")
+        elif question_request.user_email:
+            # Fallback to provided email if user not authenticated
+            user_email = question_request.user_email
+            logger.info(f"Using provided email for notifications: {user_email}")
+        
+        # Generate task ID and create database record BEFORE starting Celery task
+        task_id = str(uuid.uuid4())
+        
+        # Create task status record in database immediately
+        task_status = TaskStatus(
+            task_id=task_id,
+            task_type="question_generation",
+            status="pending",
+            progress=0,
+            current_step="Initializing...",
+            total_steps=5,
+            user_id=user_id,
+            user_email=user_email,
+            position_title=question_request.position_title,
+            request_data={
+                "jd_document_id": question_request.jd_document_id,
+                "resume_document_id": question_request.resume_document_id,
+                "llm_provider": question_request.llm_provider
+            },
+            started_at=datetime.utcnow()
+        )
+        
+        db.add(task_status)
+        db.commit()
+        db.refresh(task_status)  # Ensure the object is fully synchronized
+        
+        logger.info(f"Created task record in database for task {task_id} with status: {task_status.status}")
+        
+        # Start async task with pre-generated task ID
+        task = generate_interview_questions_async.apply_async(
+            args=[
+                question_request.jd_document_id,
+                question_request.resume_document_id,
+                question_request.position_title,
+                question_request.llm_provider,
+                user_email,
+                user_id
+            ],
+            task_id=task_id
+        )
+        
+        logger.info(f"Started async question generation task {task.id} for position: {question_request.position_title}")
+        
+        return TaskInitiationResponse(
+            task_id=task.id,
+            status=TaskStatusEnum.PENDING,
+            message=f"Interview question generation started for {question_request.position_title}",
+            estimated_duration_minutes=15,
+            websocket_endpoint=f"/ws/progress/{task.id}"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error starting async question generation: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start question generation: {str(e)}"
+        )
+
+@router.post("/questions/generate/quick/async", response_model=TaskInitiationResponse, tags=["Questions"])
+async def start_async_quick_question_generation(
+    quick_request: AsyncQuickQuestionRequest,
+    current_user = Depends(get_optional_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Start async quick question generation from text with real-time progress updates
+    
+    This endpoint starts a background task for quick interview question generation
+    from raw text input without requiring file uploads.
+    """
+    try:
+        # Import Celery task
+        from app.tasks.question_generation_tasks import generate_quick_questions_async
+        
+        # Validate input
+        if not quick_request.resume_text and not quick_request.job_description:
+            raise HTTPException(
+                status_code=400,
+                detail="Either resume_text or job_description (or both) must be provided"
+            )
+        
+        # Determine user email for notifications
+        user_email = None
+        user_id = None
+        if current_user:
+            user_id = current_user.user_id
+            # Use authenticated user's email if notifications are enabled
+            if current_user.email_notifications_enabled == "true":
+                user_email = current_user.email
+                logger.info(f"Using authenticated user email for notifications: {user_email}")
+        elif quick_request.user_email:
+            # Fallback to provided email if user not authenticated
+            user_email = quick_request.user_email
+            logger.info(f"Using provided email for notifications: {user_email}")
+        
+        # Generate task ID and create database record BEFORE starting Celery task
+        task_id = str(uuid.uuid4())
+        
+        # Create task status record in database immediately
+        task_status = TaskStatus(
+            task_id=task_id,
+            task_type="quick_question_generation",
+            status="pending",
+            progress=0,
+            current_step="Initializing...",
+            total_steps=5,
+            user_id=user_id,
+            user_email=user_email,
+            position_title=quick_request.position_title,
+            request_data={
+                "resume_text": quick_request.resume_text,
+                "job_description": quick_request.job_description,
+                "llm_provider": quick_request.llm_provider
+            },
+            started_at=datetime.utcnow()
+        )
+        
+        db.add(task_status)
+        db.commit()
+        db.refresh(task_status)  # Ensure the object is fully synchronized
+        
+        logger.info(f"Created task record in database for task {task_id} with status: {task_status.status}")
+        
+        # Start async task with pre-generated task ID
+        task = generate_quick_questions_async.apply_async(
+            args=[
+                quick_request.resume_text,
+                quick_request.job_description,
+                quick_request.position_title,
+                quick_request.llm_provider,
+                user_email,
+                user_id
+            ],
+            task_id=task_id
+        )
+        
+        logger.info(f"Started async quick question generation task {task.id} for position: {quick_request.position_title}")
+        
+        return TaskInitiationResponse(
+            task_id=task.id,
+            status=TaskStatusEnum.PENDING,
+            message=f"Quick interview question generation started for {quick_request.position_title}",
+            estimated_duration_minutes=10,
+            websocket_endpoint=f"/ws/progress/{task.id}"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error starting async quick question generation: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start quick question generation: {str(e)}"
+        )
+
+@router.get("/tasks/{task_id}/status", response_model=TaskStatusResponse, tags=["Tasks"])
+async def get_task_status(
+    task_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the current status of an async task
+    
+    This endpoint returns the current progress and status of a background task.
+    """
+    task_status = crud.get_task_status(db, task_id)
+    
+    if not task_status:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Task with ID {task_id} not found"
+        )
+    
+    return TaskStatusResponse(
+        task_id=task_status.task_id,
+        task_type=task_status.task_type,
+        status=TaskStatusEnum(task_status.status),
+        progress=task_status.progress,
+        current_step=task_status.current_step,
+        total_steps=task_status.total_steps,
+        position_title=task_status.position_title,
+        started_at=task_status.started_at,
+        completed_at=task_status.completed_at,
+        created_at=task_status.created_at,
+        result_data=task_status.result_data,
+        error_message=task_status.error_message,
+        rubric_id=task_status.rubric_id
+    )
+
+@router.get("/tasks", tags=["Tasks"])
+async def list_tasks(
+    status: Optional[str] = Query(None, description="Filter by task status"),
+    task_type: Optional[str] = Query(None, description="Filter by task type"),
+    skip: int = Query(0, ge=0, description="Number of tasks to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Number of tasks to return"),
+    db: Session = Depends(get_db)
+):
+    """
+    List async tasks with optional filtering
+    
+    This endpoint returns a list of background tasks with their current status.
+    """
+    tasks = crud.list_task_statuses(
+        db=db,
+        skip=skip,
+        limit=limit,
+        status=status,
+        task_type=task_type
+    )
+    
+    return {
+        "items": [
+            TaskStatusResponse(
+                task_id=task.task_id,
+                task_type=task.task_type,
+                status=TaskStatusEnum(task.status),
+                progress=task.progress,
+                current_step=task.current_step,
+                total_steps=task.total_steps,
+                position_title=task.position_title,
+                started_at=task.started_at,
+                completed_at=task.completed_at,
+                created_at=task.created_at,
+                result_data=task.result_data,
+                error_message=task.error_message,
+                rubric_id=task.rubric_id
+            ) for task in tasks
+        ],
+        "total": len(tasks),
+        "skip": skip,
+        "limit": limit
+    }
 
 @router.get("/rubric/list", response_model=RubricListResponse, tags=["Rubric"])
 async def list_rubrics(

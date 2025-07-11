@@ -22,7 +22,8 @@ def create_db_engine():
     """
     Create database engine with fallback to SQLite if PostgreSQL is not available
     """
-    db_type = os.getenv("DATABASE_TYPE", "sqlite")
+    # Force sqlite for now to avoid configuration issues
+    db_type = "sqlite"  # os.getenv("DATABASE_TYPE", "sqlite")
     
     if db_type == "postgresql":
 
@@ -49,15 +50,64 @@ def create_db_engine():
             raise
     
     else:
-        sqlite_path = os.getenv("DATABASE_SQLITE_PATH", "rubri.db")
+        # Use Linux temp directory for better performance on WSL
+        # This avoids issues with Windows file system mounts
+        sqlite_path = "/tmp/rubri_shared.db"
         sqlite_url = f"sqlite:///{sqlite_path}"
         logger.info(f"Using SQLite database at: {sqlite_url}")
         
-        return create_engine(
+        # Ensure directory exists and has proper permissions
+        os.makedirs(os.path.dirname(sqlite_path), exist_ok=True)
+        
+        # Check if database exists 
+        if os.path.exists(sqlite_path):
+            logger.info(f"Using existing database file: {sqlite_path}")
+        else:
+            logger.info(f"Database file will be created: {sqlite_path}")
+            # Create empty file with proper permissions
+            try:
+                with open(sqlite_path, 'w') as f:
+                    pass
+                os.chmod(sqlite_path, 0o666)
+            except Exception as e:
+                logger.warning(f"Could not pre-create database file: {e}")
+        
+        # Configure engine for WSL compatibility (no WAL mode for stability)
+        engine = create_engine(
             sqlite_url,
-            connect_args={"check_same_thread": False},
-            echo=Constants.APP_DEBUG.value
+            connect_args={
+                "check_same_thread": False,
+                "timeout": 60,  # Reasonable timeout for Linux filesystem
+            },
+            echo=False,  # Disable SQL logging to reduce noise
+            pool_pre_ping=True,     # Verify connections before use
+            pool_recycle=3600,      # Recycle connections after 1 hour
+            pool_size=10,           # Increased pool size for concurrent requests
+            max_overflow=20,        # Allow overflow for peak loads
+            pool_timeout=30,        # Timeout for getting connection from pool
         )
+        
+        # Set basic SQLite optimizations (avoiding WAL mode for WSL compatibility)
+        try:
+            with engine.connect() as conn:
+                # Use DELETE journal mode for better WSL compatibility
+                conn.execute(text("PRAGMA journal_mode=DELETE"))
+                # Set synchronous mode to FULL for data integrity
+                conn.execute(text("PRAGMA synchronous=FULL"))
+                # Increase cache size for better performance
+                conn.execute(text("PRAGMA cache_size=10000"))
+                # Store temporary tables in memory
+                conn.execute(text("PRAGMA temp_store=MEMORY"))
+                # Set reasonable busy timeout
+                conn.execute(text("PRAGMA busy_timeout=30000"))  # 30 seconds
+                # Enable foreign key constraints
+                conn.execute(text("PRAGMA foreign_keys=ON"))
+                conn.commit()
+                logger.info("Configured SQLite with WSL-compatible settings")
+        except Exception as e:
+            logger.warning(f"Could not configure SQLite settings: {e}")
+        
+        return engine
 
 # Create engine
 engine = create_db_engine()
@@ -83,6 +133,16 @@ def get_db():
     finally:
         db.close()
 
+def get_db_session():
+    """
+    Get a database session for use in Celery tasks or other contexts 
+    where we need a session that we manually manage.
+    
+    Returns:
+        Session object that must be closed after use
+    """
+    return SessionLocal()
+
 def init_db():
     """
     Initialize the database by creating all tables.
@@ -90,17 +150,20 @@ def init_db():
     """
     try:
         # Import models to ensure they're registered with Base
-        from app.db_ops.models import Document, Rubric, RubricHistory, SharedLink
+        from app.db_ops.models import Document, Rubric, RubricHistory, SharedLink, TaskStatus, User, UserSession
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables created successfully")
         
         # Test a simple query to verify database is working
-        with SessionLocal() as session:
-            # Try a simple query
-            result = session.execute(text("SELECT 1")).fetchone()
-            logger.info(f"Database test query result: {result}")
+        try:
+            with SessionLocal() as session:
+                # Try a simple query
+                result = session.execute(text("SELECT 1")).fetchone()
+                logger.info(f"Database test query result: {result}")
+        except Exception as test_e:
+            logger.warning(f"Database test query failed: {test_e}")
             
         return True
     except Exception as e:

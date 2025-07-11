@@ -1,0 +1,398 @@
+/* Enhanced Dual Theme Markdown Styling inspired by MisterMD for Interview Valley */
+
+/* CSS Custom Properties for Light Theme (Default) */
+:root {
+  /* Light Theme Markdown Colors */
+  --md-text-primary: #1e293b;
+  --md-text-muted: #475569;
+  --md-text-emphasis: #0f172a;
+  --md-text-secondary: #7652BD;
+  --md-bg-primary: #ffffff;
+  --md-bg-code: #f1f5f9;
+  --md-bg-blockquote: linear-gradient(135deg, #eff6ff, #dbeafe);
+  --md-border-light: #e2e8f0;
+  --md-border-medium: #cbd5e1;
+  --md-border-dark: #94a3b8;
+  --md-table-header-bg: linear-gradient(135deg, #4A76C4, #3b82f6);
+  --md-table-row-even: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  --md-table-row-hover: linear-gradient(135deg, #eff6ff, #dbeafe);
+  --md-link-color: #4A76C4;
+  --md-link-hover: #3b82f6;
+  --md-blockquote-text: #1e40af;
+  --md-blockquote-border: #3b82f6;
+  --md-code-text: #374151;
+  --md-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --md-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Dark Theme Markdown Colors */
+.dark {
+  --md-text-primary: #f1f5f9;
+  --md-text-muted: #cbd5e1;
+  --md-text-emphasis: #e2e8f0;
+  --md-text-secondary: #c4b5fd;
+  --md-bg-primary: #0f172a;
+  --md-bg-code: #1e293b;
+  --md-bg-blockquote: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+  --md-border-light: #334155;
+  --md-border-medium: #475569;
+  --md-border-dark: #64748b;
+  --md-table-header-bg: linear-gradient(135deg, #2563eb, #3b82f6);
+  --md-table-row-even: linear-gradient(135deg, #1e293b, #334155);
+  --md-table-row-hover: linear-gradient(135deg, #334155, #475569);
+  --md-link-color: #60a5fa;
+  --md-link-hover: #93c5fd;
+  --md-blockquote-text: #93c5fd;
+  --md-blockquote-border: #60a5fa;
+  --md-code-text: #f1f5f9;
+  --md-shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --md-shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+}
+
+/* Professional Heading System */
+.markdown-enhanced h1,
+.markdown-enhanced h2,
+.markdown-enhanced h3,
+.markdown-enhanced h4,
+.markdown-enhanced h5,
+.markdown-enhanced h6 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+  margin-top: 3em;
+  margin-bottom: 1.5em;
+  color: var(--md-text-primary);
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  -webkit-text-fill-color: inherit !important;
+  background-clip: unset !important;
+  user-select: auto !important;
+  clear: both;
+}
+
+.markdown-enhanced h1 {
+  font-size: 2.25rem; /* 36px */
+  border-bottom: 3px solid var(--md-border-medium);
+  padding-bottom: 0.5em;
+  margin-top: 0;
+  color: var(--md-text-primary);
+}
+
+.markdown-enhanced h2 {
+  font-size: 1.875rem; /* 30px */
+  border-bottom: 2px solid var(--md-border-light);
+  padding-bottom: 0.4em;
+  color: var(--md-text-emphasis);
+}
+
+.markdown-enhanced h3 {
+  font-size: 1.5rem; /* 24px */
+  color: var(--md-link-color);
+  margin-top: 1.5em;
+}
+
+.markdown-enhanced h4 {
+  font-size: 1.25rem; /* 20px */
+  color: var(--md-text-emphasis);
+}
+
+.markdown-enhanced h5 {
+  font-size: 1.125rem; /* 18px */
+  color: var(--md-text-emphasis);
+}
+
+.markdown-enhanced h6 {
+  font-size: 1rem; /* 16px */
+  color: var(--md-text-muted);
+}
+
+/* Enhanced Typography - Inspired by MisterMD */
+.markdown-enhanced p {
+  margin: 1.2em 0;
+  text-align: left;
+  hyphens: auto;
+  line-height: 1.8;
+  color: var(--md-text-primary);
+  display: block;
+}
+
+/* Special spacing for paragraphs after headings */
+.markdown-enhanced h1 + p,
+.markdown-enhanced h2 + p,
+.markdown-enhanced h3 + p,
+.markdown-enhanced h4 + p,
+.markdown-enhanced h5 + p,
+.markdown-enhanced h6 + p {
+  margin-top: 0.5em;
+}
+
+/* Better spacing for sections */
+.markdown-enhanced > * + h1,
+.markdown-enhanced > * + h2,
+.markdown-enhanced > * + h3 {
+  margin-top: 4em;
+}
+
+.markdown-enhanced > * + h4,
+.markdown-enhanced > * + h5,
+.markdown-enhanced > * + h6 {
+  margin-top: 3em;
+}
+
+.markdown-enhanced strong {
+  font-weight: 700;
+  color: var(--md-text-primary);
+}
+
+.markdown-enhanced em {
+  font-style: italic;
+  color: var(--md-text-secondary);
+}
+
+/* Professional Lists */
+.markdown-enhanced ul,
+.markdown-enhanced ol {
+  padding-left: 2em;
+  margin: 2em 0;
+  list-style: initial;
+}
+
+.markdown-enhanced ul {
+  list-style-type: disc;
+}
+
+.markdown-enhanced ol {
+  list-style-type: decimal;
+}
+
+.markdown-enhanced li {
+  margin: 0.8em 0;
+  line-height: 1.8;
+  color: var(--md-text-primary);
+  display: list-item;
+  list-style: inherit;
+}
+
+/* Ensure nested lists show bullets */
+.markdown-enhanced ul li {
+  list-style-type: disc;
+  list-style-position: outside;
+}
+
+.markdown-enhanced ol li {
+  list-style-type: decimal;
+  list-style-position: outside;
+}
+
+/* Fix for lists that might be reset by other CSS */
+.markdown-enhanced ul,
+.markdown-enhanced ol {
+  list-style-position: outside;
+}
+
+.markdown-enhanced ul ul {
+  list-style-type: circle;
+}
+
+.markdown-enhanced ul ul ul {
+  list-style-type: square;
+}
+
+/* Add space between list items and following sections */
+.markdown-enhanced ul + *,
+.markdown-enhanced ol + * {
+  margin-top: 2em;
+}
+
+/* Enhanced Code Blocks */
+.markdown-enhanced pre {
+  background: var(--md-bg-code);
+  padding: 24px;
+  border-radius: 12px;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  border: 1px solid var(--md-border-light);
+  box-shadow: var(--md-shadow-sm);
+  margin: 1.5em 0;
+}
+
+.markdown-enhanced code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace;
+  background: var(--md-bg-code);
+  color: var(--md-code-text);
+  padding: 0.3em 0.6em;
+  border-radius: 6px;
+  font-size: 0.9em;
+  font-weight: 500;
+  border: 1px solid var(--md-border-light);
+}
+
+.markdown-enhanced pre code {
+  background: none;
+  color: var(--md-code-text);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+}
+
+/* Professional Blockquotes */
+.markdown-enhanced blockquote {
+  border-left: 4px solid var(--md-blockquote-border);
+  padding: 16px 24px;
+  margin: 1.5em 0;
+  background: var(--md-bg-blockquote);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+  color: var(--md-blockquote-text);
+}
+
+/* Superior Table Styling (MisterMD Inspired) */
+.markdown-enhanced table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 2em 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--md-shadow-md);
+  border: 1px solid var(--md-border-medium);
+}
+
+.markdown-enhanced table th,
+.markdown-enhanced table td {
+  border: 1px solid var(--md-border-light);
+  padding: 12px 16px;
+  text-align: left;
+}
+
+.markdown-enhanced table th {
+  background: var(--md-table-header-bg);
+  color: white !important;
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.markdown-enhanced table tr:nth-child(even) {
+  background: var(--md-table-row-even);
+}
+
+.markdown-enhanced table tr:hover {
+  background: var(--md-table-row-hover);
+  transition: background 0.15s ease-in-out;
+}
+
+.markdown-enhanced table td {
+  font-size: 0.875rem; /* text-sm */
+  color: var(--md-text-primary);
+}
+
+/* Enhanced Links */
+.markdown-enhanced a {
+  color: var(--md-link-color);
+  text-decoration: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.markdown-enhanced a:hover {
+  color: var(--md-link-hover);
+  text-decoration: underline;
+}
+
+/* Professional Spacing System */
+.markdown-enhanced > *:first-child {
+  margin-top: 0 !important;
+}
+
+.markdown-enhanced > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .markdown-enhanced h1 {
+    font-size: 1.875rem; /* 30px */
+  }
+  
+  .markdown-enhanced h2 {
+    font-size: 1.5rem; /* 24px */
+  }
+  
+  .markdown-enhanced h3 {
+    font-size: 1.25rem; /* 20px */
+  }
+  
+  .markdown-enhanced pre {
+    padding: 16px;
+    border-radius: 8px;
+  }
+  
+  .markdown-enhanced table {
+    font-size: 0.875rem; /* text-sm */
+  }
+  
+  .markdown-enhanced table th,
+  .markdown-enhanced table td {
+    padding: 8px 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .markdown-enhanced table th,
+  .markdown-enhanced table td {
+    padding: 8px 10px;
+    font-size: 0.75rem; /* text-xs */
+  }
+}
+
+/* Enhanced HR styling */
+.markdown-enhanced hr {
+  border: none;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--md-border-medium), transparent);
+  margin: 4em 0;
+}
+
+/* Add proper section breaks */
+.markdown-enhanced h2 {
+  margin-top: 4em;
+  margin-bottom: 2em;
+  padding-top: 1em;
+}
+
+.markdown-enhanced h3 {
+  margin-top: 3.5em;
+  margin-bottom: 1.5em;
+}
+
+/* Force breaks between major sections */
+.markdown-enhanced h1::before,
+.markdown-enhanced h2::before {
+  content: "";
+  display: block;
+  height: 2em;
+}
+
+/* Professional ordered/unordered list styling */
+.markdown-enhanced ul li::marker {
+  color: var(--md-link-color);
+}
+
+.markdown-enhanced ol li::marker {
+  color: var(--md-link-color);
+  font-weight: 600;
+}
+
+/* Enhanced selection styling */
+.markdown-enhanced ::selection {
+  background: var(--md-link-color);
+  color: white;
+}
+
+/* Better section separation and readability */
+.markdown-enhanced {
+  line-height: 1.8;
+  word-spacing: 0.1em;
+}

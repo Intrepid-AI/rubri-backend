@@ -9,7 +9,7 @@ import pdfplumber
 import docx
 import markdown
 import tempfile
-from textract import process
+# from textract import process
 
 from app.logger import get_logger
 

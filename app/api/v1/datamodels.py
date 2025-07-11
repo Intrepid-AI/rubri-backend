@@ -177,3 +177,63 @@ class QuickQuestionRequest(BaseModel):
     job_description: Optional[str] = None
     position_title: str = Field(..., description="Position title")
     llm_provider: Optional[str] = Field("openai", description="LLM provider to use")
+
+# Async Task Models
+class TaskStatusEnum(str, Enum):
+    """Enum for task status"""
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+class AsyncQuestionGenerationRequest(BaseModel):
+    """Model for async question generation with email notification"""
+    jd_document_id: Optional[str] = None
+    resume_document_id: Optional[str] = None
+    position_title: str = Field(..., description="Position title for the interview")
+    llm_provider: Optional[str] = Field("openai", description="LLM provider to use")
+    user_email: Optional[str] = Field(None, description="Email for completion notification")
+    
+class AsyncQuickQuestionRequest(BaseModel):
+    """Model for async quick question generation with email notification"""
+    resume_text: Optional[str] = None
+    job_description: Optional[str] = None
+    position_title: str = Field(..., description="Position title")
+    llm_provider: Optional[str] = Field("openai", description="LLM provider to use")
+    user_email: Optional[str] = Field(None, description="Email for completion notification")
+
+class TaskStatusResponse(BaseModel):
+    """Response model for task status"""
+    task_id: str
+    task_type: str
+    status: TaskStatusEnum
+    progress: int  # 0-100
+    current_step: Optional[str] = None
+    total_steps: int = 5
+    position_title: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+    result_data: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
+    rubric_id: Optional[str] = None
+    
+    class Config:
+        orm_mode = True
+
+class TaskInitiationResponse(BaseModel):
+    """Response model for task initiation"""
+    task_id: str
+    status: TaskStatusEnum
+    message: str
+    estimated_duration_minutes: int = 15
+    websocket_endpoint: Optional[str] = None
+
+class ProgressUpdate(BaseModel):
+    """Model for real-time progress updates"""
+    task_id: str
+    progress: int  # 0-100
+    current_step: str
+    step_number: int
+    total_steps: int
+    estimated_remaining_minutes: Optional[int] = None

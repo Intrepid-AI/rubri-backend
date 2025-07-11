@@ -13,11 +13,16 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 python main.py
 ```
 
-### Running the Question Generation Service
+### Running the Async Task System
 ```bash
-# Start the question generation FastAPI server
-cd q_gen
-python main.py
+# Start Redis server (required for Celery)
+redis-server
+
+# Start Celery worker for background tasks (in a separate terminal)
+python start_celery_worker.py
+
+# Alternative: Start Celery worker with more control
+celery -A app.celery_app worker --loglevel=info --concurrency=4 --queues=questions,emails
 ```
 
 ### Testing
@@ -102,24 +107,59 @@ DATABASE_URL=sqlite:///rubri.db  # Optional override
 LLM_API_KEY=your-api-key  # For chosen LLM provider
 LOG_LEVEL=INFO
 PORT=8000
+
+# Redis Configuration (for async tasks)
+REDIS_URL=redis://localhost:6379/0
+
+# Email Configuration (for notifications)
+SMTP_USERNAME=your-email@example.com
+SMTP_PASSWORD=your-app-password
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+FROM_EMAIL=noreply@rubri.ai
+FROM_NAME="Rubri Interview Assistant"
+
+# Frontend URL (for email links)
+FRONTEND_URL=http://localhost:3000
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:8000/api/v1/auth/google/callback
+
+# JWT Configuration
+JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
 ```
 
 ### LLM Provider Configuration
 Configure your chosen provider in the YAML config files with appropriate API keys in environment variables.
 
-## New Question Generation Endpoints
+## Question Generation Endpoints
 
-### `/questions/generate` - Generate from Uploaded Documents
-Creates comprehensive interview questions using uploaded JD/resume documents.
-- Uses the multi-agent system for deep technical question generation
-- Stores results in database as rubric records
-- Returns complete evaluation with interviewer guidance
+### Synchronous Endpoints (Legacy)
+- `/questions/generate` - Generate from uploaded documents (5-minute timeout)
+- `/questions/generate/quick` - Generate from raw text (5-minute timeout)
 
-### `/questions/generate/quick` - Generate from Raw Text
-Creates interview questions directly from text input without file upload.
-- Accepts resume_text and/or job_description as direct input
-- Same comprehensive multi-agent processing
-- Ideal for quick evaluations or API integrations
+### Async Endpoints (Recommended)
+- `/questions/generate/async` - Start async generation from uploaded documents
+- `/questions/generate/quick/async` - Start async generation from raw text
+- `/tasks/{task_id}/status` - Get task status and progress
+- `/tasks` - List all background tasks
+- `/ws/progress/{task_id}` - WebSocket for real-time progress updates
+
+### Authentication Endpoints
+- `/auth/google/login` - Get Google OAuth authorization URL
+- `/auth/google/callback` - Handle Google OAuth callback
+- `/auth/me` - Get current user profile
+- `/auth/me/preferences` - Update user preferences
+- `/auth/logout` - Logout current user
+- `/auth/refresh` - Refresh access token
+
+### Email Notifications & Authentication
+- **Automatic Email Detection**: Authenticated users automatically get email notifications (if enabled in preferences)
+- **Gmail Integration**: Sign in with Google to automatically use your Gmail for notifications
+- **Manual Email**: Non-authenticated users can provide email manually
+- **Preference Control**: Users can enable/disable email notifications in their profile
 
 ## Multi-Agent Question Generation Workflow
 

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 
 from app.db_ops import models
@@ -410,6 +410,414 @@ def get_shared_link(db: Session, token: str) -> Optional[models.SharedLink]:
         Shared link record or None if not found
     """
     return db.query(models.SharedLink).filter(models.SharedLink.token == token).first()
+
+# Task Status operations
+def create_task_status(
+    db: Session,
+    task_id: str,
+    task_type: str,
+    position_title: Optional[str] = None,
+    user_email: Optional[str] = None,
+    request_data: Optional[Dict[str, Any]] = None
+) -> models.TaskStatus:
+    """
+    Create a new task status record.
+    
+    Args:
+        db: Database session
+        task_id: Unique task ID
+        task_type: Type of task (question_generation, etc.)
+        position_title: Position title (optional)
+        user_email: User email for notifications (optional)
+        request_data: Original request data (optional)
+        
+    Returns:
+        Created task status record
+    """
+    db_task = models.TaskStatus(
+        task_id=task_id,
+        task_type=task_type,
+        status="pending",
+        progress=0,
+        position_title=position_title,
+        user_email=user_email,
+        request_data=request_data
+    )
+    
+    db.add(db_task)
+    db.commit()
+    db.refresh(db_task)
+    
+    logger.info(f"Created task status record: {task_id}")
+    return db_task
+
+def get_task_status(db: Session, task_id: str) -> Optional[models.TaskStatus]:
+    """
+    Get task status by task ID.
+    
+    Args:
+        db: Database session
+        task_id: Task ID
+        
+    Returns:
+        Task status record or None if not found
+    """
+    return db.query(models.TaskStatus).filter(models.TaskStatus.task_id == task_id).first()
+
+def update_task_status(
+    db: Session,
+    task_id: str,
+    status: Optional[str] = None,
+    progress: Optional[int] = None,
+    current_step: Optional[str] = None,
+    result_data: Optional[Dict[str, Any]] = None,
+    error_message: Optional[str] = None,
+    rubric_id: Optional[str] = None
+) -> Optional[models.TaskStatus]:
+    """
+    Update task status.
+    
+    Args:
+        db: Database session
+        task_id: Task ID
+        status: New status (optional)
+        progress: Progress percentage 0-100 (optional)
+        current_step: Current processing step (optional)
+        result_data: Task results (optional)
+        error_message: Error message if failed (optional)
+        rubric_id: Associated rubric ID (optional)
+        
+    Returns:
+        Updated task status record or None if not found
+    """
+    db_task = get_task_status(db, task_id)
+    if not db_task:
+        logger.error(f"Task status not found: {task_id}")
+        return None
+    
+    if status is not None:
+        db_task.status = status
+        
+        # Set timestamps based on status
+        if status == "in_progress" and not db_task.started_at:
+            db_task.started_at = datetime.utcnow()
+        elif status in ["completed", "failed"]:
+            db_task.completed_at = datetime.utcnow()
+    
+    if progress is not None:
+        db_task.progress = min(progress, 100)
+    
+    if current_step is not None:
+        db_task.current_step = current_step
+    
+    if result_data is not None:
+        db_task.result_data = result_data
+    
+    if error_message is not None:
+        db_task.error_message = error_message
+    
+    if rubric_id is not None:
+        db_task.rubric_id = rubric_id
+    
+    db.commit()
+    db.refresh(db_task)
+    
+    logger.info(f"Updated task status: {task_id}")
+    return db_task
+
+def list_task_statuses(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[str] = None,
+    task_type: Optional[str] = None
+) -> List[models.TaskStatus]:
+    """
+    List task statuses with optional filtering.
+    
+    Args:
+        db: Database session
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+        status: Filter by status (optional)
+        task_type: Filter by task type (optional)
+        
+    Returns:
+        List of task status records
+    """
+    query = db.query(models.TaskStatus)
+    
+    if status:
+        query = query.filter(models.TaskStatus.status == status)
+    
+    if task_type:
+        query = query.filter(models.TaskStatus.task_type == task_type)
+    
+    return query.order_by(
+        models.TaskStatus.created_at.desc()
+    ).offset(skip).limit(limit).all()
+
+# User operations
+def create_user(
+    db: Session,
+    google_id: str,
+    email: str,
+    name: str,
+    given_name: Optional[str] = None,
+    family_name: Optional[str] = None,
+    picture_url: Optional[str] = None
+) -> models.User:
+    """
+    Create a new user record.
+    
+    Args:
+        db: Database session
+        google_id: Google account ID
+        email: User's email address
+        name: User's full name
+        given_name: User's first name (optional)
+        family_name: User's last name (optional)
+        picture_url: User's profile picture URL (optional)
+        
+    Returns:
+        Created user record
+    """
+    db_user = models.User(
+        user_id=str(uuid.uuid4()),
+        google_id=google_id,
+        email=email,
+        name=name,
+        given_name=given_name,
+        family_name=family_name,
+        picture_url=picture_url,
+        last_login_at=datetime.utcnow()
+    )
+    
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    
+    logger.info(f"Created user record: {db_user.user_id} ({email})")
+    return db_user
+
+def get_user_by_id(db: Session, user_id: str) -> Optional[models.User]:
+    """
+    Get user by user ID.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        
+    Returns:
+        User record or None if not found
+    """
+    return db.query(models.User).filter(models.User.user_id == user_id).first()
+
+def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
+    """
+    Get user by email address.
+    
+    Args:
+        db: Database session
+        email: Email address
+        
+    Returns:
+        User record or None if not found
+    """
+    return db.query(models.User).filter(models.User.email == email).first()
+
+def get_user_by_google_id(db: Session, google_id: str) -> Optional[models.User]:
+    """
+    Get user by Google ID.
+    
+    Args:
+        db: Database session
+        google_id: Google account ID
+        
+    Returns:
+        User record or None if not found
+    """
+    return db.query(models.User).filter(models.User.google_id == google_id).first()
+
+def update_user_login_time(db: Session, user_id: str) -> Optional[models.User]:
+    """
+    Update user's last login time.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        
+    Returns:
+        Updated user record or None if not found
+    """
+    user = get_user_by_id(db, user_id)
+    if user:
+        user.last_login_at = datetime.utcnow()
+        user.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(user)
+        logger.info(f"Updated login time for user: {user_id}")
+    return user
+
+def update_user_preferences(
+    db: Session,
+    user_id: str,
+    email_notifications_enabled: Optional[bool] = None,
+    preferred_llm_provider: Optional[str] = None
+) -> Optional[models.User]:
+    """
+    Update user preferences.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        email_notifications_enabled: Email notification preference
+        preferred_llm_provider: Preferred LLM provider
+        
+    Returns:
+        Updated user record or None if not found
+    """
+    user = get_user_by_id(db, user_id)
+    if not user:
+        return None
+    
+    if email_notifications_enabled is not None:
+        user.email_notifications_enabled = "true" if email_notifications_enabled else "false"
+    
+    if preferred_llm_provider is not None:
+        user.preferred_llm_provider = preferred_llm_provider
+    
+    user.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+    
+    logger.info(f"Updated preferences for user: {user_id}")
+    return user
+
+# User Session operations
+def create_user_session(
+    db: Session,
+    user_id: str,
+    access_token_hash: str,
+    refresh_token_hash: Optional[str] = None,
+    expires_at: Optional[datetime] = None,
+    user_agent: Optional[str] = None,
+    ip_address: Optional[str] = None
+) -> models.UserSession:
+    """
+    Create a new user session.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        access_token_hash: Hashed access token
+        refresh_token_hash: Hashed refresh token (optional)
+        expires_at: Session expiration time
+        user_agent: User agent string
+        ip_address: Client IP address
+        
+    Returns:
+        Created session record
+    """
+    if not expires_at:
+        expires_at = datetime.utcnow() + timedelta(hours=24)
+    
+    db_session = models.UserSession(
+        session_id=str(uuid.uuid4()),
+        user_id=user_id,
+        access_token_hash=access_token_hash,
+        refresh_token_hash=refresh_token_hash,
+        expires_at=expires_at,
+        user_agent=user_agent,
+        ip_address=ip_address
+    )
+    
+    db.add(db_session)
+    db.commit()
+    db.refresh(db_session)
+    
+    logger.info(f"Created session for user: {user_id}")
+    return db_session
+
+def get_user_session_by_token_hash(db: Session, token_hash: str) -> Optional[models.UserSession]:
+    """
+    Get user session by token hash.
+    
+    Args:
+        db: Database session
+        token_hash: Hashed access token
+        
+    Returns:
+        Session record or None if not found
+    """
+    return db.query(models.UserSession).filter(
+        models.UserSession.access_token_hash == token_hash,
+        models.UserSession.expires_at > datetime.utcnow()
+    ).first()
+
+def update_user_session_last_accessed(db: Session, session_id: str):
+    """
+    Update session last accessed time.
+    
+    Args:
+        db: Database session
+        session_id: Session ID
+    """
+    session = db.query(models.UserSession).filter(
+        models.UserSession.session_id == session_id
+    ).first()
+    
+    if session:
+        session.last_accessed_at = datetime.utcnow()
+        db.commit()
+
+def delete_user_session(db: Session, session_id: str) -> bool:
+    """
+    Delete a user session (logout).
+    
+    Args:
+        db: Database session
+        session_id: Session ID
+        
+    Returns:
+        True if session was deleted, False otherwise
+    """
+    session = db.query(models.UserSession).filter(
+        models.UserSession.session_id == session_id
+    ).first()
+    
+    if session:
+        db.delete(session)
+        db.commit()
+        logger.info(f"Deleted session: {session_id}")
+        return True
+    
+    return False
+
+def delete_expired_sessions(db: Session) -> int:
+    """
+    Delete all expired sessions.
+    
+    Args:
+        db: Database session
+        
+    Returns:
+        Number of sessions deleted
+    """
+    expired_sessions = db.query(models.UserSession).filter(
+        models.UserSession.expires_at <= datetime.utcnow()
+    ).all()
+    
+    count = len(expired_sessions)
+    for session in expired_sessions:
+        db.delete(session)
+    
+    db.commit()
+    
+    if count > 0:
+        logger.info(f"Deleted {count} expired sessions")
+    
+    return count
 
 if __name__ == "__main__":
     from app.db_ops.database import SessionLocal

@@ -1,0 +1,415 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* CSS Custom Properties for Dynamic Theming */
+    --color-primary: 59 130 246;
+    --color-success: 16 185 129;
+    --color-warning: 245 158 11;
+    --color-danger: 239 68 68;
+    --color-info: 14 165 233;
+    
+    --radius: 0.5rem;
+    --ring-offset-width: 2px;
+    --ring-offset-color: 255 255 255;
+    --ring-color: 59 130 246;
+    
+    /* Light Theme Colors */
+    --color-background: 255 255 255;       /* white */
+    --color-background-muted: 248 250 252; /* slate-50 */
+    --color-background-subtle: 241 245 249; /* slate-100 */
+    --color-background-surface: 248 250 252; /* slate-50 */
+    
+    --color-foreground: 15 23 42;          /* slate-900 */
+    --color-foreground-muted: 71 85 105;   /* slate-600 */
+    --color-foreground-subtle: 148 163 184; /* slate-400 */
+    --color-foreground-inverse: 248 250 252; /* slate-50 */
+    
+    --color-border: 226 232 240;           /* slate-200 */
+    --color-border-hover: 203 213 225;     /* slate-300 */
+    --color-border-light: 203 213 225;     /* slate-300 */
+    --color-border-medium: 148 163 184;    /* slate-400 */
+    --color-border-dark: 100 116 139;      /* slate-500 */
+    
+    /* Surface colors for components */
+    --color-surface-50: 248 250 252;       /* slate-50 */
+    --color-surface-100: 241 245 249;      /* slate-100 */
+    --color-surface-200: 226 232 240;      /* slate-200 */
+    --color-surface-300: 203 213 225;      /* slate-300 */
+  }
+  
+  .dark {
+    /* Dark Theme Colors */
+    --color-background: 15 23 42;          /* slate-900 */
+    --color-background-muted: 30 41 59;    /* slate-800 */
+    --color-background-subtle: 51 65 85;   /* slate-700 */
+    --color-background-surface: 30 41 59;  /* slate-800 */
+    
+    --color-foreground: 241 245 249;       /* slate-100 */
+    --color-foreground-muted: 203 213 225; /* slate-300 */
+    --color-foreground-subtle: 148 163 184; /* slate-400 */
+    --color-foreground-inverse: 15 23 42;  /* slate-900 */
+    
+    --color-border: 51 65 85;              /* slate-700 */
+    --color-border-hover: 71 85 105;       /* slate-600 */
+    --color-border-light: 71 85 105;       /* slate-600 */
+    --color-border-medium: 100 116 139;    /* slate-500 */
+    --color-border-dark: 148 163 184;      /* slate-400 */
+    
+    /* Surface colors for components */
+    --color-surface-50: 30 41 59;          /* slate-800 */
+    --color-surface-100: 51 65 85;         /* slate-700 */
+    --color-surface-200: 71 85 105;        /* slate-600 */
+    --color-surface-300: 100 116 139;      /* slate-500 */
+  }
+  
+  * {
+    @apply antialiased;
+  }
+  
+  html {
+    @apply scroll-smooth;
+  }
+  
+  html.dark {
+    color-scheme: dark;
+  }
+  
+  body {
+    @apply bg-background text-foreground font-sans;
+    @apply selection:bg-primary-600 selection:text-white;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Enhanced Focus Styles */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+  }
+  
+  /* Professional Dark Scrollbars */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-100;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-300 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-400;
+  }
+  
+  /* Dark Theme Typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-foreground font-semibold tracking-tight;
+  }
+  
+  h1 {
+    @apply text-4xl lg:text-5xl;
+  }
+  
+  h2 {
+    @apply text-3xl lg:text-4xl;
+  }
+  
+  h3 {
+    @apply text-2xl lg:text-3xl;
+  }
+  
+  h4 {
+    @apply text-xl lg:text-2xl;
+  }
+  
+  h5 {
+    @apply text-lg lg:text-xl;
+  }
+  
+  h6 {
+    @apply text-base lg:text-lg;
+  }
+  
+  p {
+    @apply leading-relaxed text-foreground-muted;
+  }
+  
+  /* Professional Dark Link Styles */
+  a {
+    @apply text-primary-400 hover:text-primary-300 transition-colors duration-200;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-sm;
+  }
+  
+  /* Dark Theme Code Styling */
+  code {
+    @apply font-mono text-sm bg-surface-100 text-foreground px-1.5 py-0.5 rounded;
+  }
+  
+  pre {
+    @apply font-mono text-sm bg-surface-50 text-foreground p-4 rounded-lg overflow-x-auto;
+  }
+  
+  pre code {
+    @apply bg-transparent text-foreground p-0;
+  }
+}
+
+@layer components {
+  /* Professional Button System */
+  .btn-base {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium;
+    @apply transition-all duration-200 ease-in-out;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+    @apply disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
+    @apply relative overflow-hidden;
+  }
+  
+  .btn-primary {
+    @apply btn-base bg-primary-600 text-white border border-primary-600;
+    @apply hover:bg-primary-700 hover:border-primary-700 hover:shadow-primary;
+    @apply focus-visible:ring-primary-500 active:bg-primary-800;
+  }
+  
+  .btn-secondary {
+    @apply btn-base bg-surface-100 text-foreground border border-border;
+    @apply hover:bg-surface-200 hover:border-border-light hover:shadow-sm;
+    @apply focus-visible:ring-primary-500 active:bg-surface-300;
+  }
+  
+  .btn-outline {
+    @apply btn-base bg-background text-foreground-muted border border-border;
+    @apply hover:bg-surface-100 hover:border-border-light hover:shadow-sm;
+    @apply focus-visible:ring-primary-500 active:bg-surface-200;
+  }
+  
+  .btn-ghost {
+    @apply btn-base bg-transparent text-foreground-muted border border-transparent;
+    @apply hover:bg-surface-100 hover:text-foreground;
+    @apply focus-visible:ring-primary-500 active:bg-surface-200;
+  }
+  
+  .btn-destructive {
+    @apply btn-base bg-red-600 text-white border border-red-600;
+    @apply hover:bg-red-700 hover:border-red-700 hover:shadow-lg;
+    @apply focus-visible:ring-red-500 active:bg-red-800;
+  }
+  
+  .btn-success {
+    @apply btn-base bg-green-600 text-white border border-green-600;
+    @apply hover:bg-green-700 hover:border-green-700 hover:shadow-lg;
+    @apply focus-visible:ring-green-500 active:bg-green-800;
+  }
+  
+  /* Button Sizes */
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  
+  .btn-md {
+    @apply px-4 py-2 text-sm;
+  }
+  
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+  
+  .btn-xl {
+    @apply px-8 py-4 text-lg;
+  }
+  
+  /* Dark Theme Input System */
+  .input-base {
+    @apply w-full rounded-lg border bg-surface-100 px-3 py-2.5 text-sm;
+    @apply placeholder:text-foreground-subtle transition-all duration-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-0;
+    @apply disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-50;
+  }
+  
+  .input-default {
+    @apply input-base border-border text-foreground;
+    @apply focus:border-primary-500 focus:ring-primary-500 focus:ring-opacity-20;
+  }
+  
+  .input-error {
+    @apply input-base border-red-500 bg-red-900/20 text-foreground;
+    @apply focus:border-red-400 focus:ring-red-500 focus:ring-opacity-20;
+  }
+  
+  .input-success {
+    @apply input-base border-green-500 bg-green-900/20 text-foreground;
+    @apply focus:border-green-400 focus:ring-green-500 focus:ring-opacity-20;
+  }
+  
+  /* Dark Theme Card System */
+  .card-base {
+    @apply rounded-xl border bg-surface-100 shadow-soft border-border;
+    @apply transition-all duration-200 ease-in-out;
+  }
+  
+  .card-interactive {
+    @apply card-base hover:shadow-medium hover:border-border-light;
+    @apply cursor-pointer;
+  }
+  
+  .card-elevated {
+    @apply card-base shadow-medium border-border;
+  }
+  
+  .card-flat {
+    @apply rounded-xl border border-border bg-surface-100;
+  }
+  
+  /* Dark Card Sections */
+  .card-header {
+    @apply p-6 pb-4 border-b border-border;
+  }
+  
+  .card-content {
+    @apply p-6;
+  }
+  
+  .card-footer {
+    @apply p-6 pt-4 border-t border-border;
+  }
+  
+  /* Dark Theme Form Elements */
+  .form-group {
+    @apply space-y-2;
+  }
+  
+  .form-label {
+    @apply block text-sm font-medium text-foreground;
+  }
+  
+  .form-description {
+    @apply text-sm text-foreground-muted;
+  }
+  
+  .form-error {
+    @apply text-sm text-red-400 font-medium;
+  }
+  
+  /* Professional Badges */
+  .badge-base {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .badge-primary {
+    @apply badge-base bg-primary-100 text-primary-800;
+  }
+  
+  .badge-success {
+    @apply badge-base bg-green-100 text-green-800;
+  }
+  
+  .badge-warning {
+    @apply badge-base bg-yellow-100 text-yellow-800;
+  }
+  
+  .badge-danger {
+    @apply badge-base bg-red-100 text-red-800;
+  }
+  
+  .badge-gray {
+    @apply badge-base bg-surface-200 text-foreground;
+  }
+  
+  /* Professional Animations */
+  .animate-in {
+    @apply animate-fade-in-up;
+  }
+  
+  .animate-loading {
+    @apply animate-pulse;
+  }
+  
+  .animate-shimmer {
+    @apply animate-shimmer;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    background-size: 200% 100%;
+  }
+  
+  /* Layout Utilities */
+  .container-narrow {
+    @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .container-wide {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .section-spacing {
+    @apply py-16 lg:py-24;
+  }
+  
+  /* Professional Typography */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-600 via-primary-700 to-blue-600 bg-clip-text text-transparent;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-600 via-primary-700 to-blue-600 bg-clip-text text-transparent;
+  }
+  
+  .text-gradient-success {
+    @apply bg-gradient-to-r from-success-600 to-emerald-600 bg-clip-text text-transparent;
+  }
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Professional Loading States */
+  .skeleton {
+    @apply animate-pulse bg-gray-200 rounded;
+  }
+  
+  .skeleton-text {
+    @apply skeleton h-4 w-full;
+  }
+  
+  .skeleton-title {
+    @apply skeleton h-6 w-3/4;
+  }
+  
+  .skeleton-avatar {
+    @apply skeleton h-10 w-10 rounded-full;
+  }
+  
+  /* Dark Theme Dividers */
+  .divider {
+    @apply border-t border-border;
+  }
+  
+  .divider-vertical {
+    @apply border-l border-border;
+  }
+  
+  /* Professional Status Indicators */
+  .status-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+  
+  .status-online {
+    @apply status-dot bg-green-500;
+  }
+  
+  .status-offline {
+    @apply status-dot bg-gray-400;
+  }
+  
+  .status-busy {
+    @apply status-dot bg-yellow-500;
+  }
+  
+  .status-away {
+    @apply status-dot bg-red-500;
+  }
+}

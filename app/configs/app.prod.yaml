@@ -28,3 +28,32 @@ llm:
 
 development:
   use_mock_responses: false
+
+# Redis configuration for Celery
+redis:
+  url: "redis://redis:6379/0"  # Docker service name for Redis
+
+# Email configuration
+email:
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+  from_email: "noreply@rubri.ai"
+  from_name: "Rubri Interview Assistant"
+  # SMTP credentials should be set via environment variables:
+  # SMTP_USERNAME and SMTP_PASSWORD
+
+# Frontend URL for email links
+frontend_url: "https://app.rubri.ai"
+
+# Google OAuth configuration
+google_oauth:
+  client_id: ""  # Set via GOOGLE_CLIENT_ID environment variable
+  client_secret: ""  # Set via GOOGLE_CLIENT_SECRET environment variable
+  redirect_uri: "https://api.rubri.ai/api/v1/auth/google/callback"
+
+# JWT Configuration
+jwt:
+  secret_key: ""  # Set via JWT_SECRET_KEY environment variable
+  algorithm: "HS256"
+  access_token_expire_minutes: 1440  # 24 hours
+  refresh_token_expire_days: 30

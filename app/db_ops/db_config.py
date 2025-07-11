@@ -69,6 +69,11 @@ def _override_from_env(config):
         config["database"]["sqlite_path"] = os.getenv("DB_SQLITE_PATH")
     if os.getenv("DB_USE_SQLITE_FALLBACK"):
         config["database"]["use_sqlite_fallback"] = os.getenv("DB_USE_SQLITE_FALLBACK").lower() == "true"
+    
+    # Force use of same database for both FastAPI and Celery
+    # Override to ensure consistency
+    if not os.getenv("DB_SQLITE_PATH"):
+        config["database"]["sqlite_path"] = "rubri.db"
 
     if os.getenv("DB_HOST"):
         config["database"]["host"] = os.getenv("DB_HOST")

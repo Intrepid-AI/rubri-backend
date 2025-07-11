@@ -7,7 +7,7 @@ app:
 
 database:
   type: "sqlite"  # Default to SQLite for development
-  sqlite_path: "rubri_dev.db"
+  sqlite_path: "rubri.db"  # Use same database name as default to avoid sync issues
   # PostgreSQL configuration (uncomment to use)
   # type: "postgresql"
   # host: "localhost"
@@ -81,5 +81,34 @@ prompts:
   prompt_jd_res : rubric_jd_res.md
 
 development:
-  use_mock_responses: true  
+  use_mock_responses: false     
   mock_response_file: "app/api/v1/sample_responce/response.json"
+
+# Redis configuration for Celery
+redis:
+  url: "redis://localhost:6379/0"
+
+# Email configuration
+email:
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+  from_email: "noreply@rubri.ai"
+  from_name: "Rubri Interview Assistant"
+  # SMTP credentials should be set via environment variables:
+  # SMTP_USERNAME and SMTP_PASSWORD
+
+# Frontend URL for email links
+frontend_url: "http://localhost:3000"
+
+# Google OAuth configuration
+google_oauth:
+  client_id: ""  # Set via GOOGLE_CLIENT_ID environment variable
+  client_secret: ""  # Set via GOOGLE_CLIENT_SECRET environment variable
+  redirect_uri: "http://localhost:8000/api/v1/auth/google/callback"
+
+# JWT Configuration
+jwt:
+  secret_key: "your-super-secret-jwt-key-change-in-production"  # Set via JWT_SECRET_KEY environment variable
+  algorithm: "HS256"
+  access_token_expire_minutes: 1440  # 24 hours
+  refresh_token_expire_days: 30

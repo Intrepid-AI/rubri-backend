@@ -414,3 +414,157 @@ def create_technical_interview_system(llm_provider: LLMProvider = LLMProvider.OP
     system = MultiAgentTechnicalInterviewSystem(llm_config)
     logger.info("Technical interview system created successfully")
     return system
+
+def _create_interview_system_with_progress_patching(llm_config, progress_tracker):
+    """
+    Create interview system with progress tracking integrated during initialization
+    """
+    logger = get_logger(__name__)
+    logger.info("Creating interview system with progress tracking integration")
+    
+    # Create system with modified initialization that includes progress patching
+    system = ProgressTrackingMultiAgentSystem(llm_config, progress_tracker)
+    logger.info("Progress-tracking interview system created successfully")
+    return system
+
+class ProgressTrackingMultiAgentSystem(MultiAgentTechnicalInterviewSystem):
+    """
+    Modified MultiAgentTechnicalInterviewSystem that integrates progress tracking
+    during initialization, before workflow compilation
+    """
+    
+    def __init__(self, llm_config, progress_tracker):
+        self.progress_tracker = progress_tracker
+        self.llm_config = llm_config
+        self.memory = MemorySaver()
+        self.logger = get_logger(__name__)
+        
+        self.logger.info("Initializing Multi-Agent Technical Interview System with Progress Tracking")
+        self.logger.info(f"LLM Configuration: Provider={llm_config.provider.value}, Model={llm_config.model}, Temperature={llm_config.temperature}")
+        
+        # Initialize all agents
+        self.logger.info("Initializing all agents...")
+        self.skill_extractor = SkillExtractionAgent(llm_config)
+        self.question_generator = QuestionGenerationAgent(llm_config)
+        self.question_evaluator = QuestionEvaluationAgent(llm_config)
+        self.response_generator = ExpectedResponseAgent(llm_config)
+        self.report_assembler = ReportAssemblyAgent(llm_config)
+        self.logger.info("All agents initialized successfully")
+        
+        # PATCH AGENTS BEFORE WORKFLOW BUILDING
+        self.logger.info("Patching agents for progress tracking BEFORE workflow compilation")
+        self._patch_agents_for_progress()
+        
+        # Build workflow (now with patched agents)
+        self.logger.info("Building multi-agent workflow...")
+        self.workflow = self._build_workflow()
+        self.agent = self.workflow.compile(checkpointer=self.memory)
+        self.logger.info("Multi-Agent Technical Interview System with Progress Tracking initialized successfully")
+    
+    def _patch_agents_for_progress(self):
+        """Patch agents to include progress tracking before workflow compilation"""
+        agents = [
+            (self.skill_extractor, "SkillExtractionAgent"),
+            (self.question_generator, "QuestionGenerationAgent"),
+            (self.question_evaluator, "QuestionEvaluationAgent"),
+            (self.response_generator, "ExpectedResponseAgent"),
+            (self.report_assembler, "ReportAssemblyAgent")
+        ]
+        
+        for agent, agent_name in agents:
+            self.logger.info(f"DEBUG: Patching {agent_name} execute method BEFORE workflow compilation")
+            original_execute = agent.execute
+            
+            def create_wrapped_execute(original_method, name):
+                def wrapped_execute(state):
+                    self.logger.info(f"DEBUG: Starting agent: {name}")
+                    self.progress_tracker.update_agent_progress(name, 0)
+                    
+                    try:
+                        result = original_method(state)
+                        self.progress_tracker.update_agent_progress(name, 100)
+                        self.logger.info(f"DEBUG: Completed agent: {name}")
+                        return result
+                    except Exception as e:
+                        self.logger.error(f"Agent {name} failed: {str(e)}")
+                        raise
+                
+                return wrapped_execute
+            
+            # Replace the execute method BEFORE workflow uses it
+            agent.execute = create_wrapped_execute(original_execute, agent_name)
+            self.logger.info(f"DEBUG: Successfully patched {agent_name} BEFORE workflow compilation")
+        
+        self.logger.info("DEBUG: Finished patching all agents BEFORE workflow compilation")
+    
+    def _build_workflow(self) -> StateGraph:
+        """Build the complete multi-agent workflow with lambda functions to support progress tracking."""
+        
+        self.logger.info("Building multi-agent workflow with 5 agents (with lambda functions for progress tracking)")
+        workflow = StateGraph(MultiAgentInterviewState)
+        
+        # Add all agent nodes using lambda functions to call current method references
+        self.logger.info("DEBUG: Adding workflow nodes with lambda functions for progress tracking")
+        workflow.add_node("extract_skills", lambda state: self.skill_extractor.execute(state))
+        workflow.add_node("generate_questions", lambda state: self.question_generator.execute(state))
+        workflow.add_node("evaluate_questions", lambda state: self.question_evaluator.execute(state))
+        workflow.add_node("generate_responses", lambda state: self.response_generator.execute(state))
+        workflow.add_node("assemble_report", lambda state: self.report_assembler.execute(state))
+        workflow.add_node("handle_error", self._handle_error)
+        
+        # Set entry point
+        workflow.add_edge(START, "extract_skills")
+        self.logger.info("Workflow entry point set to skill extraction")
+        
+        # Define workflow transitions
+        self.logger.info("Setting up workflow transitions and conditional routing")
+        workflow.add_conditional_edges(
+            "extract_skills",
+            self._route_from_skill_extraction,
+            {
+                "generate_questions": "generate_questions",
+                "error": "handle_error"
+            }
+        )
+        
+        workflow.add_conditional_edges(
+            "generate_questions", 
+            self._route_from_question_generation,
+            {
+                "evaluate_questions": "evaluate_questions",
+                "error": "handle_error"
+            }
+        )
+        
+        workflow.add_conditional_edges(
+            "evaluate_questions",
+            self._route_from_question_evaluation,
+            {
+                "generate_responses": "generate_responses",
+                "error": "handle_error"
+            }
+        )
+        
+        workflow.add_conditional_edges(
+            "generate_responses",
+            self._route_from_response_generation,
+            {
+                "assemble_report": "assemble_report",
+                "error": "handle_error"
+            }
+        )
+        
+        workflow.add_conditional_edges(
+            "assemble_report",
+            self._route_from_report_assembly,
+            {
+                "complete": END,
+                "error": "handle_error"
+            }
+        )
+        
+        # Error handling leads to END
+        workflow.add_edge("handle_error", END)
+        self.logger.info("Multi-agent workflow built successfully with lambda functions for progress tracking")
+        
+        return workflow

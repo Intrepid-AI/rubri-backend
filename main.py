@@ -1,7 +1,7 @@
 import os
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -12,6 +12,7 @@ from app.api.v1.routes import router as api_v1_router
 from app.api.v1.datamodels import ValidationErrorResponse, ErrorResponse
 from app.db_ops.database import init_db
 from app.constants import Constants
+from app.websocket_manager import connection_manager
 
 
 # Initialize logger
@@ -88,6 +89,31 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+@app.websocket("/ws/progress/{task_id}")
+async def websocket_progress_endpoint(websocket: WebSocket, task_id: str):
+    """
+    WebSocket endpoint for real-time task progress updates
+    
+    Connect to this endpoint to receive real-time progress updates for a specific task.
+    The task_id should be the ID returned when starting an async task.
+    """
+    await connection_manager.connect(websocket, task_id)
+    
+    try:
+        while True:
+            # Keep the connection alive and listen for client messages
+            data = await websocket.receive_text()
+            
+            # Handle client messages (e.g., ping/pong)
+            if data == "ping":
+                await websocket.send_text("pong")
+                
+    except WebSocketDisconnect:
+        connection_manager.disconnect(websocket, task_id)
+    except Exception as e:
+        logger.error(f"WebSocket error for task {task_id}: {e}")
+        connection_manager.disconnect(websocket, task_id)
 
 if __name__ == "__main__":
     
