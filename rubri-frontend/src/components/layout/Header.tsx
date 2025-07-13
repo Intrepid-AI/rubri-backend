@@ -1,9 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, ThemeToggle } from '../ui';
 import { useTheme } from '../../contexts/ThemeContext';
 
 export const Header: React.FC = () => {
   const { isDark, toggleTheme } = useTheme();
+  const [activeItem, setActiveItem] = useState('home');
+  
+  const navItems = [
+    { id: 'home', label: 'Home', href: '#' },
+    { id: 'features', label: 'Features', href: '#features' },
+    { id: 'how-it-works', label: 'How it Works', href: '#how-it-works' },
+    { id: 'pricing', label: 'Pricing', href: '#pricing' }
+  ];
+  
+  const handleNavClick = (item: typeof navItems[0]) => {
+    setActiveItem(item.id);
+    
+    if (item.id === 'home') {
+      // Scroll to top of page
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  };
   
   return (
     <header className="bg-background border-b border-border sticky top-0 z-50 backdrop-blur-sm">
@@ -11,7 +31,16 @@ export const Header: React.FC = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo and Brand */}
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-3">
+            <div 
+              className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity duration-200"
+              onClick={() => {
+                setActiveItem('home');
+                window.scrollTo({
+                  top: 0,
+                  behavior: 'smooth'
+                });
+              }}
+            >
               <img 
                 src="/logo.png" 
                 alt="Interview Valley" 
@@ -30,24 +59,28 @@ export const Header: React.FC = () => {
           
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
-            <a 
-              href="#features" 
-              className="text-foreground-muted hover:text-foreground text-sm font-medium transition-colors"
-            >
-              Features
-            </a>
-            <a 
-              href="#how-it-works" 
-              className="text-foreground-muted hover:text-foreground text-sm font-medium transition-colors"
-            >
-              How it Works
-            </a>
-            <a 
-              href="#pricing" 
-              className="text-foreground-muted hover:text-foreground text-sm font-medium transition-colors"
-            >
-              Pricing
-            </a>
+            {navItems.map((item) => (
+              <a 
+                key={item.id}
+                href={item.href} 
+                onClick={(e) => {
+                  if (item.id === 'home') {
+                    e.preventDefault();
+                  }
+                  handleNavClick(item);
+                }}
+                className={`relative text-sm font-medium transition-colors duration-200 ${
+                  activeItem === item.id 
+                    ? 'text-foreground' 
+                    : 'text-foreground-muted hover:text-foreground'
+                }`}
+              >
+                {item.label}
+                {activeItem === item.id && (
+                  <div className="absolute -bottom-1 left-0 right-0 h-0.5 bg-primary-500 rounded-full"></div>
+                )}
+              </a>
+            ))}
           </nav>
           
           {/* Action Buttons */}
@@ -59,7 +92,7 @@ export const Header: React.FC = () => {
             />
             
             <Button size="sm">
-              Get Started
+              Get Started Free
             </Button>
           </div>
         </div>

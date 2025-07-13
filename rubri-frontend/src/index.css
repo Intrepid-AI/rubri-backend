@@ -162,33 +162,25 @@
 }
 
 @layer base {
-  /* Dark Theme Gradient Overlays */
-  .dark {
-    /* Subtle gradient overlay for depth */
+  /* Enhanced gradient backgrounds for light theme */
+  .bg-gradient-to-br {
     background-image: 
-      radial-gradient(ellipse at top, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
-      radial-gradient(ellipse at bottom left, rgba(139, 92, 246, 0.03) 0%, transparent 50%),
-      radial-gradient(ellipse at bottom right, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
+      linear-gradient(to bottom right, 
+        rgba(248, 250, 252, 1) 0%,           /* light gray start */
+        rgba(241, 245, 249, 1) 20%,          /* slate-100 */
+        rgba(219, 234, 254, 0.6) 50%,        /* blue-100 - bluish middle */
+        rgba(191, 219, 254, 0.4) 60%,        /* blue-200 - more blue */
+        rgba(203, 213, 225, 0.7) 80%,        /* slate-300 */
+        rgba(148, 163, 184, 0.3) 100%        /* slate-400 end */
+      );
   }
-  
+
   /* Enhanced gradient backgrounds for dark theme */
   .dark .bg-gradient-to-br {
     background-image: linear-gradient(to bottom right, 
       rgb(var(--color-background)), 
       rgb(var(--color-background-muted)) 40%, 
       rgb(var(--color-background-subtle)) 100%);
-    position: relative;
-  }
-  
-  .dark .bg-gradient-to-br::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: 
-      radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
-      radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
-      radial-gradient(circle at 40% 20%, rgba(59, 130, 246, 0.04) 0%, transparent 40%);
-    pointer-events: none;
   }
   
   /* Subtle animated gradient for hero sections in dark mode */
@@ -518,6 +510,21 @@
     @apply bg-gradient-to-r from-success-600 to-emerald-600 bg-clip-text text-transparent;
   }
   
+  /* Green shimmer animation for free text */
+  .animate-shimmer-green {
+    background-size: 200% 100%;
+    animation: shimmer-green 2.5s ease-in-out infinite;
+  }
+  
+  @keyframes shimmer-green {
+    0% {
+      background-position: 200% center;
+    }
+    100% {
+      background-position: -200% center;
+    }
+  }
+  
   .text-balance {
     text-wrap: balance;
   }
@@ -572,7 +579,7 @@
   /* Shiny Flare Animation - Light Theme */
   .shiny-badge {
     @apply relative overflow-hidden;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.25) 100%);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.12) 100%);
   }
   
   .shiny-badge::before {
@@ -630,16 +637,26 @@
   
   @keyframes glow-pulse {
     0%, 100% {
-      box-shadow: 0 0 8px rgba(59, 130, 246, 0.3), 0 0 15px rgba(59, 130, 246, 0.2);
+      box-shadow: 0 0 5px rgba(59, 130, 246, 0.2), 0 0 10px rgba(59, 130, 246, 0.1);
     }
     50% {
-      box-shadow: 0 0 25px rgba(59, 130, 246, 0.5), 0 0 35px rgba(59, 130, 246, 0.3);
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.3), 0 0 25px rgba(59, 130, 246, 0.2);
     }
   }
   
   /* Dark Theme Glow */
   .dark .glow-badge {
     animation: glow-pulse-dark 2s ease-in-out infinite;
+  }
+  
+  /* Bluish text for badge in light theme */
+  .shiny-badge.glow-badge {
+    @apply text-primary-400;
+  }
+  
+  /* White text for badge in dark theme */
+  .dark .shiny-badge.glow-badge {
+    @apply text-white;
   }
   
   @keyframes glow-pulse-dark {

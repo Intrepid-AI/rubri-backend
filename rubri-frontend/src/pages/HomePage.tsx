@@ -78,9 +78,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
       <section className="relative px-4 pt-16 pb-24 sm:px-6 lg:px-8 hero-gradient">
         <div className="max-w-4xl mx-auto text-center">
           <div className="mb-8">
-            <div className="inline-flex items-center px-4 py-2 bg-primary-500/20 rounded-full text-primary-400 text-sm font-medium mb-6 shiny-badge glow-badge">
+            <div className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-4 shiny-badge glow-badge">
               <Sparkles className="h-4 w-4 mr-2" />
               AI-Powered Interview Plan Generation
+            </div>
+            <div className="text-green-500 text-sm font-medium mb-6 relative overflow-hidden">
+              <span className="relative z-10 bg-gradient-to-r from-green-400 via-green-300 to-green-500 bg-clip-text text-transparent animate-shimmer-green">
+                100% FREE - No Credit Card Required
+              </span>
             </div>
           </div>
           
@@ -93,7 +98,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
           </h1>
           
           <p className="text-xl text-foreground-muted mb-8 max-w-3xl mx-auto leading-relaxed">
-            Transform your hiring process with AI-generated, comprehensive interview questions 
+            Transform your hiring process for FREE with AI-generated, comprehensive interview questions 
             tailored to specific candidates and roles. Get deep technical questions, 
             evaluation criteria, and interviewer guidance instantly.
           </p>
@@ -105,7 +110,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
               leftIcon={Zap}
               className="shadow-primary hover:shadow-lg"
             >
-              Generate Plan Now
+              Generate Free Plan Now
             </Button>
             
             <Button 
@@ -114,18 +119,18 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
               leftIcon={FileText}
               className="hover:shadow-md"
             >
-              View Sample Report
+              View Sample Plan
             </Button>
           </div>
           
           <div className="mt-12 flex items-center justify-center space-x-8 text-sm text-foreground-subtle">
             <div className="flex items-center">
               <CheckCircle className="h-4 w-4 text-green-400 mr-2" />
-              No sign-up required
+              100% Free
             </div>
             <div className="flex items-center">
               <CheckCircle className="h-4 w-4 text-green-400 mr-2" />
-              Multiple file formats
+              AI Agent Powered
             </div>
             <div className="flex items-center">
               <CheckCircle className="h-4 w-4 text-green-400 mr-2" />
@@ -221,6 +226,81 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
             >
               Try It Now
             </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="py-20 bg-background">
+        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+          <div className="mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              Simple, Transparent Pricing
+            </h2>
+            <p className="text-xl text-foreground-muted max-w-2xl mx-auto">
+              Professional interview plans at no cost. Start immediately and create unlimited interview assessments.
+            </p>
+          </div>
+          
+          <div className="max-w-md mx-auto">
+            <div className="relative bg-surface-100 rounded-2xl border border-border p-8 shadow-medium hover:shadow-lg transition-all duration-300">
+              {/* Free Badge */}
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                <div className="bg-green-500 text-white px-4 py-2 rounded-full text-sm font-medium">
+                  Free
+                </div>
+              </div>
+              
+              {/* Price */}
+              <div className="mb-6 mt-4">
+                <div className="flex items-baseline justify-center">
+                  <span className="text-6xl font-bold text-foreground">$0</span>
+                  <span className="text-xl text-foreground-muted ml-2">/month</span>
+                </div>
+                <p className="text-foreground-muted mt-2">No credit card required</p>
+              </div>
+              
+              {/* Features */}
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                  <span className="text-foreground">Unlimited interview plans</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                  <span className="text-foreground">AI-powered question generation</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                  <span className="text-foreground">Professional report formats</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                  <span className="text-foreground">All file formats supported</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                  <span className="text-foreground">Instant results</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
+                  <span className="text-foreground">Email support</span>
+                </div>
+              </div>
+              
+              {/* CTA Button */}
+              <Button 
+                size="lg" 
+                onClick={onGetStarted}
+                className="w-full shadow-lg hover:shadow-xl"
+              >
+                Get Started Free
+              </Button>
+              
+              <p className="text-foreground-subtle text-sm mt-4">
+                No hidden fees • No trial limits • No strings attached
+              </p>
+            </div>
           </div>
         </div>
       </section>
