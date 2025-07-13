@@ -44,28 +44,28 @@
   }
   
   .dark {
-    /* Dark Theme Colors */
-    --color-background: 15 23 42;          /* slate-900 */
-    --color-background-muted: 30 41 59;    /* slate-800 */
-    --color-background-subtle: 51 65 85;   /* slate-700 */
-    --color-background-surface: 30 41 59;  /* slate-800 */
+    /* Dark Theme Colors - Pure Black */
+    --color-background: 0 0 0;             /* pure black */
+    --color-background-muted: 17 17 17;    /* gray-950 */
+    --color-background-subtle: 28 28 28;   /* gray-900 */
+    --color-background-surface: 17 17 17;  /* gray-950 */
     
     --color-foreground: 241 245 249;       /* slate-100 */
     --color-foreground-muted: 203 213 225; /* slate-300 */
     --color-foreground-subtle: 148 163 184; /* slate-400 */
-    --color-foreground-inverse: 15 23 42;  /* slate-900 */
+    --color-foreground-inverse: 0 0 0;     /* pure black */
     
-    --color-border: 51 65 85;              /* slate-700 */
-    --color-border-hover: 71 85 105;       /* slate-600 */
-    --color-border-light: 71 85 105;       /* slate-600 */
-    --color-border-medium: 100 116 139;    /* slate-500 */
-    --color-border-dark: 148 163 184;      /* slate-400 */
+    --color-border: 38 38 38;              /* neutral-800 */
+    --color-border-hover: 64 64 64;        /* neutral-700 */
+    --color-border-light: 64 64 64;        /* neutral-700 */
+    --color-border-medium: 82 82 82;       /* neutral-600 */
+    --color-border-dark: 115 115 115;      /* neutral-500 */
     
     /* Surface colors for components */
-    --color-surface-50: 30 41 59;          /* slate-800 */
-    --color-surface-100: 51 65 85;         /* slate-700 */
-    --color-surface-200: 71 85 105;        /* slate-600 */
-    --color-surface-300: 100 116 139;      /* slate-500 */
+    --color-surface-50: 23 23 23;          /* neutral-900 */
+    --color-surface-100: 38 38 38;         /* neutral-800 */
+    --color-surface-200: 64 64 64;         /* neutral-700 */
+    --color-surface-300: 82 82 82;         /* neutral-600 */
   }
   
   * {
@@ -161,6 +161,60 @@
   }
 }
 
+@layer base {
+  /* Dark Theme Gradient Overlays */
+  .dark {
+    /* Subtle gradient overlay for depth */
+    background-image: 
+      radial-gradient(ellipse at top, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom left, rgba(139, 92, 246, 0.03) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
+  }
+  
+  /* Enhanced gradient backgrounds for dark theme */
+  .dark .bg-gradient-to-br {
+    background-image: linear-gradient(to bottom right, 
+      rgb(var(--color-background)), 
+      rgb(var(--color-background-muted)) 40%, 
+      rgb(var(--color-background-subtle)) 100%);
+    position: relative;
+  }
+  
+  .dark .bg-gradient-to-br::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+      radial-gradient(circle at 40% 20%, rgba(59, 130, 246, 0.04) 0%, transparent 40%);
+    pointer-events: none;
+  }
+  
+  /* Subtle animated gradient for hero sections in dark mode */
+  @keyframes gradient-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+  
+  .dark .hero-gradient {
+    background: linear-gradient(
+      135deg,
+      rgba(59, 130, 246, 0.1) 0%,
+      rgba(139, 92, 246, 0.05) 25%,
+      transparent 50%,
+      rgba(59, 130, 246, 0.05) 75%,
+      rgba(139, 92, 246, 0.1) 100%
+    );
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+  }
+}
+
 @layer components {
   /* Professional Button System */
   .btn-base {
@@ -169,6 +223,27 @@
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
     @apply disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
     @apply relative overflow-hidden;
+  }
+  
+  /* Dark mode gradient hover effect for buttons */
+  .dark .btn-primary {
+    background: linear-gradient(135deg, rgb(59, 130, 246), rgb(79, 150, 266));
+    border: 1px solid rgba(59, 130, 246, 0.5);
+  }
+  
+  .dark .btn-primary:hover {
+    background: linear-gradient(135deg, rgb(79, 150, 266), rgb(99, 170, 286));
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+  
+  .dark .btn-secondary {
+    background: linear-gradient(135deg, rgb(38, 38, 38), rgb(48, 48, 48));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .dark .btn-secondary:hover {
+    background: linear-gradient(135deg, rgb(48, 48, 48), rgb(58, 58, 58));
+    border-color: rgba(255, 255, 255, 0.2);
   }
   
   .btn-primary {
@@ -251,6 +326,18 @@
   .card-base {
     @apply rounded-xl border bg-surface-100 shadow-soft border-border;
     @apply transition-all duration-200 ease-in-out;
+  }
+  
+  /* Dark mode gradient cards */
+  .dark .card-base {
+    background: linear-gradient(135deg, rgb(23, 23, 23), rgb(28, 28, 28));
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  .dark .card-interactive:hover {
+    background: linear-gradient(135deg, rgb(28, 28, 28), rgb(33, 33, 33));
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.1);
   }
   
   .card-interactive {
@@ -356,6 +443,75 @@
   
   .gradient-text {
     @apply bg-gradient-to-r from-primary-600 via-primary-700 to-blue-600 bg-clip-text text-transparent;
+    @apply relative inline-block;
+  }
+  
+  /* Shimmer text effect with animated gradient */
+  .shimmer-text {
+    background-size: 200% 100%;
+    animation: shimmer-gradient 3s ease-in-out infinite;
+  }
+  
+  @keyframes shimmer-gradient {
+    0% {
+      background-position: 200% center;
+    }
+    100% {
+      background-position: -200% center;
+    }
+  }
+  
+  /* Light theme shimmer gradient */
+  .shimmer-text {
+    background-image: linear-gradient(
+      90deg,
+      #3b82f6 0%,
+      #60a5fa 20%,
+      #93c5fd 40%,
+      #60a5fa 60%,
+      #3b82f6 80%,
+      #2563eb 100%
+    );
+  }
+  
+  /* Enhanced gradient text with glow for dark theme */
+  .dark .gradient-text {
+    @apply bg-gradient-to-r from-blue-400 via-primary-500 to-blue-600 bg-clip-text text-transparent;
+    filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
+    animation: text-glow 2s ease-in-out infinite alternate;
+  }
+  
+  /* Dark theme shimmer gradient */
+  .dark .shimmer-text {
+    background-image: linear-gradient(
+      90deg,
+      #60a5fa 0%,
+      #93c5fd 20%,
+      #dbeafe 40%,
+      #93c5fd 60%,
+      #60a5fa 80%,
+      #3b82f6 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer-gradient-dark 3s ease-in-out infinite;
+  }
+  
+  @keyframes shimmer-gradient-dark {
+    0% {
+      background-position: 200% center;
+    }
+    100% {
+      background-position: -200% center;
+    }
+  }
+  
+  @keyframes text-glow {
+    from {
+      filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
+    }
+    to {
+      filter: drop-shadow(0 0 30px rgba(59, 130, 246, 0.8)) drop-shadow(0 0 40px rgba(59, 130, 246, 0.4));
+    }
   }
   
   .text-gradient-success {
@@ -411,5 +567,87 @@
   
   .status-away {
     @apply status-dot bg-red-500;
+  }
+  
+  /* Shiny Flare Animation - Light Theme */
+  .shiny-badge {
+    @apply relative overflow-hidden;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.25) 100%);
+  }
+  
+  .shiny-badge::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      45deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.3) 35%,
+      rgba(255, 255, 255, 0.5) 40%,
+      rgba(255, 255, 255, 0.8) 50%,
+      rgba(255, 255, 255, 0.5) 60%,
+      rgba(255, 255, 255, 0.3) 65%,
+      transparent 70%
+    );
+    animation: shiny-flare 3s ease-in-out infinite;
+  }
+  
+  /* Dark Theme Overrides */
+  .dark .shiny-badge {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.3) 100%);
+  }
+  
+  .dark .shiny-badge::before {
+    background: linear-gradient(
+      45deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.05) 35%,
+      rgba(255, 255, 255, 0.1) 40%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0.1) 60%,
+      rgba(255, 255, 255, 0.05) 65%,
+      transparent 70%
+    );
+  }
+  
+  @keyframes shiny-flare {
+    0% {
+      transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    100% {
+      transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+  }
+  
+  /* Pulse Glow Effect - Light Theme */
+  .glow-badge {
+    @apply relative;
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+  
+  @keyframes glow-pulse {
+    0%, 100% {
+      box-shadow: 0 0 8px rgba(59, 130, 246, 0.3), 0 0 15px rgba(59, 130, 246, 0.2);
+    }
+    50% {
+      box-shadow: 0 0 25px rgba(59, 130, 246, 0.5), 0 0 35px rgba(59, 130, 246, 0.3);
+    }
+  }
+  
+  /* Dark Theme Glow */
+  .dark .glow-badge {
+    animation: glow-pulse-dark 2s ease-in-out infinite;
+  }
+  
+  @keyframes glow-pulse-dark {
+    0%, 100% {
+      box-shadow: 0 0 5px rgba(59, 130, 246, 0.5), 0 0 10px rgba(59, 130, 246, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.5);
+    }
   }
 }

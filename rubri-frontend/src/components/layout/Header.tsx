@@ -1,5 +1,4 @@
 import React from 'react';
-import { Github, ExternalLink } from 'lucide-react';
 import { Button, ThemeToggle } from '../ui';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -58,19 +57,6 @@ export const Header: React.FC = () => {
               onToggle={toggleTheme}
               size="sm"
             />
-            
-            <a
-              href="https://github.com/your-repo"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-foreground-subtle hover:text-foreground transition-colors"
-            >
-              <Github className="h-5 w-5" />
-            </a>
-            
-            <Button variant="outline" size="sm" leftIcon={ExternalLink}>
-              API Docs
-            </Button>
             
             <Button size="sm">
               Get Started

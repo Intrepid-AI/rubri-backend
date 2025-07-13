@@ -75,18 +75,20 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background-muted to-surface-100">
       {/* Hero Section */}
-      <section className="relative px-4 pt-16 pb-24 sm:px-6 lg:px-8">
+      <section className="relative px-4 pt-16 pb-24 sm:px-6 lg:px-8 hero-gradient">
         <div className="max-w-4xl mx-auto text-center">
           <div className="mb-8">
-            <div className="inline-flex items-center px-4 py-2 bg-primary-500/20 rounded-full text-primary-400 text-sm font-medium mb-6">
+            <div className="inline-flex items-center px-4 py-2 bg-primary-500/20 rounded-full text-primary-400 text-sm font-medium mb-6 shiny-badge glow-badge">
               <Sparkles className="h-4 w-4 mr-2" />
-              AI-Powered Interview Question Generation
+              AI-Powered Interview Plan Generation
             </div>
           </div>
           
           <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
             Generate Perfect{' '}
-            <span className="gradient-text">Interview Questions</span>{' '}
+            <span className="gradient-text shimmer-text">Interview</span>
+            <br />
+            <span className="gradient-text shimmer-text">Plan</span>{' '}
             in Minutes
           </h1>
           
@@ -103,7 +105,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
               leftIcon={Zap}
               className="shadow-primary hover:shadow-lg"
             >
-              Generate Questions Now
+              Generate Plan Now
             </Button>
             
             <Button 
