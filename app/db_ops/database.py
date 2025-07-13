@@ -50,13 +50,15 @@ def create_db_engine():
             raise
     
     else:
-        # Use Linux temp directory for better performance on WSL
-        # This avoids issues with Windows file system mounts
-        sqlite_path = "/tmp/rubri_shared.db"
+        # Use project directory for database file - accessible from both Windows and WSL
+        # This allows easy access and backup of the database
+        # Get path from config, with environment override support
+        config_sqlite_path = db_config_dict["database"].get("sqlite_path", "rubri.db")
+        sqlite_path = os.environ.get("DB_PATH", os.path.abspath(config_sqlite_path))
         sqlite_url = f"sqlite:///{sqlite_path}"
         logger.info(f"Using SQLite database at: {sqlite_url}")
         
-        # Ensure directory exists and has proper permissions
+        # Ensure directory exists (in case DB_PATH points to a subdirectory)
         os.makedirs(os.path.dirname(sqlite_path), exist_ok=True)
         
         # Check if database exists 
@@ -68,6 +70,7 @@ def create_db_engine():
             try:
                 with open(sqlite_path, 'w') as f:
                     pass
+                # Use more permissive mode for cross-platform compatibility
                 os.chmod(sqlite_path, 0o666)
             except Exception as e:
                 logger.warning(f"Could not pre-create database file: {e}")

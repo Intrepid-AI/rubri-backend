@@ -16,7 +16,7 @@ database:
   max_overflow: 20
   # SQLite fallback configuration
   use_sqlite_fallback: true  # Fall back to SQLite if PostgreSQL is not available
-  sqlite_path: "/data/rubri_prod.db"
+  sqlite_path: "rubri_prod.db"  # Relative path in project directory for easier access
 
 storage:
   base_dir: "/data/received_data"
