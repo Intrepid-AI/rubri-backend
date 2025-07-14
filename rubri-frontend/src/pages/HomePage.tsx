@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from '../components/ui';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   Brain, 
   Zap, 
@@ -18,6 +19,28 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
+  const { isAuthenticated } = useAuth();
+
+  const handleButtonClick = async () => {
+    if (isAuthenticated) {
+      onGetStarted();
+    } else {
+      try {
+        // Call the backend to get the Google OAuth URL
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/auth/google/login`);
+        const data = await response.json();
+        
+        if (data.authorization_url) {
+          // Redirect to Google OAuth page
+          window.location.href = data.authorization_url;
+        } else {
+          console.error('No authorization URL received');
+        }
+      } catch (error) {
+        console.error('Failed to initiate Google OAuth:', error);
+      }
+    }
+  };
   const features = [
     {
       icon: Brain,
@@ -106,7 +129,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button 
               size="xl" 
-              onClick={onGetStarted}
+              onClick={handleButtonClick}
               leftIcon={Zap}
               className="shadow-primary hover:shadow-lg"
             >
@@ -126,11 +149,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
           <div className="mt-12 flex items-center justify-center space-x-8 text-sm text-foreground-subtle">
             <div className="flex items-center">
               <CheckCircle className="h-4 w-4 text-green-400 mr-2" />
-              100% Free
+              100% Free Forever
             </div>
             <div className="flex items-center">
               <CheckCircle className="h-4 w-4 text-green-400 mr-2" />
-              AI Agent Powered
+              No sign-up required
             </div>
             <div className="flex items-center">
               <CheckCircle className="h-4 w-4 text-green-400 mr-2" />
@@ -220,7 +243,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
           <div className="text-center mt-12">
             <Button 
               size="lg" 
-              onClick={onGetStarted}
+              onClick={handleButtonClick}
               rightIcon={ArrowRight}
               className="shadow-medium hover:shadow-lg"
             >
@@ -291,7 +314,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
               {/* CTA Button */}
               <Button 
                 size="lg" 
-                onClick={onGetStarted}
+                onClick={handleButtonClick}
                 className="w-full shadow-lg hover:shadow-xl"
               >
                 Get Started Free
@@ -318,7 +341,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted }) => {
           
           <Button 
             size="xl" 
-            onClick={onGetStarted}
+            onClick={handleButtonClick}
             leftIcon={Brain}
             className="shadow-lg hover:shadow-xl"
           >

@@ -72,22 +72,25 @@ api.interceptors.response.use(
 );
 
 // File Upload APIs
-export const uploadFile = async (file: File, type: 'jd' | 'resume'): Promise<DocumentResponse> => {
+export const uploadFile = async (file: File, type: 'jd' | 'resume', token?: string): Promise<DocumentResponse> => {
   const formData = new FormData();
   formData.append('file', file);
   
   const response = await api.post<DocumentResponse>(`/api/v1/upload/file/${type}`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
+      ...addAuthHeaders(token)
     },
   });
   
   return response.data;
 };
 
-export const uploadText = async (text: string, type: 'jd' | 'resume'): Promise<DocumentResponse> => {
+export const uploadText = async (text: string, type: 'jd' | 'resume', token?: string): Promise<DocumentResponse> => {
   const payload: TextUploadRequest = { text, document_type: type };
-  const response = await api.post<DocumentResponse>(`/api/v1/upload/text/${type}`, payload);
+  const response = await api.post<DocumentResponse>(`/api/v1/upload/text/${type}`, payload, {
+    headers: addAuthHeaders(token)
+  });
   return response.data;
 };
 

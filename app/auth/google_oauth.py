@@ -26,8 +26,8 @@ class GoogleOAuthConfig:
         # OAuth scopes
         self.scopes = [
             'openid',
-            'email',
-            'profile'
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile'
         ]
         
         # Validate configuration

@@ -139,20 +139,11 @@ async def google_callback(
             ip_address=ip_address
         )
         
-        return {
-            "message": "Authentication successful",
-            "user": {
-                "user_id": user.user_id,
-                "email": user.email,
-                "name": user.name,
-                "given_name": user.given_name,
-                "family_name": user.family_name,
-                "picture_url": user.picture_url,
-                "email_notifications_enabled": user.email_notifications_enabled == "true",
-                "preferred_llm_provider": user.preferred_llm_provider
-            },
-            "tokens": tokens
-        }
+        # Redirect to frontend question generation page with tokens as URL parameters
+        frontend_url = "http://localhost:5173"  # Vite frontend URL
+        redirect_url = f"{frontend_url}/generator?access_token={tokens['access_token']}&refresh_token={tokens['refresh_token']}"
+        
+        return RedirectResponse(url=redirect_url)
         
     except Exception as e:
         logger.error(f"Error processing Google OAuth callback: {e}")
@@ -261,7 +252,7 @@ async def update_user_preferences(
 
 @router.post("/refresh", tags=["Authentication"])
 async def refresh_access_token(
-    refresh_token: str,
+    request: dict,
     db: Session = Depends(get_db)
 ):
     """
@@ -270,6 +261,14 @@ async def refresh_access_token(
     Generates a new access token using a valid refresh token.
     """
     try:
+        # Extract refresh token from request body
+        refresh_token = request.get("refresh_token")
+        if not refresh_token:
+            raise HTTPException(
+                status_code=422,
+                detail="refresh_token is required"
+            )
+        
         # Decode and validate refresh token
         payload = decode_token(refresh_token)
         if not payload or payload.get("type") != "refresh":

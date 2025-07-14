@@ -29,10 +29,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const isAuthenticated = !!(user && tokens);
 
+  // Helper function to save auth state
+  const saveAuthState = React.useCallback((user: User, tokens: AuthTokens) => {
+    localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokens));
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    setTokens(tokens);
+    setUser(user);
+  }, []);
+
   // Load authentication state from localStorage on mount
   useEffect(() => {
     const loadAuthState = async () => {
       try {
+        // Check for tokens in URL parameters first (OAuth callback)
+        const urlParams = new URLSearchParams(window.location.search);
+        const accessToken = urlParams.get('access_token');
+        const refreshToken = urlParams.get('refresh_token');
+
+        if (accessToken && refreshToken) {
+          try {
+            // Get user profile with the new token
+            const currentUser = await authAPI.getCurrentUser(accessToken);
+            const tokens = { access_token: accessToken, refresh_token: refreshToken };
+            
+            // Save auth state
+            saveAuthState(currentUser, tokens);
+            
+            // Check if we're on the generator page (OAuth redirect)
+            if (window.location.pathname === '/generator') {
+              // Trigger navigation to generator in the app
+              window.dispatchEvent(new CustomEvent('navigate-to-generator'));
+              // Clean up URL and redirect to root
+              window.history.replaceState({}, document.title, '/');
+            } else {
+              // Clean up URL parameters
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }
+            
+            setIsLoading(false);
+            return;
+          } catch (error) {
+            console.error('Error handling OAuth callback:', error);
+          }
+        }
+
+        // Check existing stored tokens
         const storedTokens = localStorage.getItem(TOKEN_STORAGE_KEY);
         const storedUser = localStorage.getItem(USER_STORAGE_KEY);
 
@@ -67,14 +108,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     loadAuthState();
-  }, []);
-
-  const saveAuthState = (user: User, tokens: AuthTokens) => {
-    localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokens));
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-    setTokens(tokens);
-    setUser(user);
-  };
+  }, [saveAuthState]);
 
   const clearAuthState = () => {
     localStorage.removeItem(TOKEN_STORAGE_KEY);

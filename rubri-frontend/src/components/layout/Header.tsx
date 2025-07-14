@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { Button, ThemeToggle } from '../ui';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { LogIn, LogOut, User } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const { isDark, toggleTheme } = useTheme();
+  const { user, isAuthenticated, logout } = useAuth();
   const [activeItem, setActiveItem] = useState('home');
   
   const navItems = [
@@ -22,6 +25,31 @@ export const Header: React.FC = () => {
         top: 0,
         behavior: 'smooth'
       });
+    }
+  };
+
+  const handleLogin = async () => {
+    try {
+      // Call the backend to get the Google OAuth URL
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/auth/google/login`);
+      const data = await response.json();
+      
+      if (data.authorization_url) {
+        // Redirect to Google OAuth page
+        window.location.href = data.authorization_url;
+      } else {
+        console.error('No authorization URL received');
+      }
+    } catch (error) {
+      console.error('Failed to initiate Google OAuth:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
     }
   };
   
@@ -91,9 +119,33 @@ export const Header: React.FC = () => {
               size="sm"
             />
             
-            <Button size="sm">
-              Get Started Free
-            </Button>
+            {isAuthenticated ? (
+              <>
+                {/* User Info */}
+                <div className="flex items-center space-x-2 text-sm text-foreground-subtle">
+                  <User className="h-4 w-4" />
+                  <span>{user?.name}</span>
+                </div>
+                
+                {/* Logout Button */}
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={handleLogout}
+                  leftIcon={LogOut}
+                >
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <Button 
+                size="sm"
+                onClick={handleLogin}
+                leftIcon={LogIn}
+              >
+                Sign in with Google
+              </Button>
+            )}
           </div>
         </div>
       </div>

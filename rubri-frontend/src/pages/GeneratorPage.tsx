@@ -6,6 +6,7 @@ import { ReportViewer } from '../components/report';
 import { Brain, ArrowLeft } from 'lucide-react';
 import { uploadFile, asyncQuestionAPI } from '../services/api';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useAuth } from '../contexts/AuthContext';
 import type { 
   GenerationState, 
   QuestionGenerationResponse,
@@ -20,7 +21,34 @@ interface GeneratorPageProps {
 type PageState = 'input' | 'generating' | 'results';
 
 export const GeneratorPage: React.FC<GeneratorPageProps> = ({ onBack }) => {
+  const { tokens, isAuthenticated, isLoading } = useAuth();
   const [inputMode, setInputMode] = useState<'upload' | 'text'>('upload');
+
+
+  // Show loading while auth state is being determined
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-4">Loading...</h2>
+          <p className="text-foreground-muted">Checking authentication status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-4">Authentication Required</h2>
+          <p className="text-foreground-muted mb-6">Please sign in to access the interview generator.</p>
+          <Button onClick={onBack}>Back to Home</Button>
+        </div>
+      </div>
+    );
+  }
   const [pageState, setPageState] = useState<PageState>('input');
   const [generationState, setGenerationState] = useState<GenerationState>({
     isLoading: false,
@@ -91,13 +119,13 @@ export const GeneratorPage: React.FC<GeneratorPageProps> = ({ onBack }) => {
 
       if (data.jdFile) {
         setGenerationState(prev => ({ ...prev, progress: 10, stage: 'Processing job description...' }));
-        const jdResponse: DocumentResponse = await uploadFile(data.jdFile, 'jd');
+        const jdResponse: DocumentResponse = await uploadFile(data.jdFile, 'jd', tokens?.access_token);
         jdDocId = jdResponse.doc_id;
       }
 
       if (data.resumeFile) {
         setGenerationState(prev => ({ ...prev, progress: 15, stage: 'Processing resume...' }));
-        const resumeResponse: DocumentResponse = await uploadFile(data.resumeFile, 'resume');
+        const resumeResponse: DocumentResponse = await uploadFile(data.resumeFile, 'resume', tokens?.access_token);
         resumeDocId = resumeResponse.doc_id;
       }
 
@@ -109,7 +137,7 @@ export const GeneratorPage: React.FC<GeneratorPageProps> = ({ onBack }) => {
         resume_document_id: resumeDocId,
         position_title: data.positionTitle,
         llm_provider: 'openai'
-      });
+      }, tokens?.access_token);
 
       // Set task ID to start WebSocket connection
       setCurrentTaskId(taskResponse.task_id);
@@ -147,7 +175,7 @@ export const GeneratorPage: React.FC<GeneratorPageProps> = ({ onBack }) => {
         job_description: data.jobDescription,
         position_title: data.positionTitle,
         llm_provider: 'openai'
-      });
+      }, tokens?.access_token);
 
       // Set task ID to start WebSocket connection
       setCurrentTaskId(taskResponse.task_id);

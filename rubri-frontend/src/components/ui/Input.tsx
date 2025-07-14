@@ -142,13 +142,22 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     
     return (
       <FormField
-        label={label}
         error={error}
         helper={helper}
         success={success}
         warning={warning}
-        required={required}
       >
+        {/* Static Label */}
+        {label && (
+          <label
+            htmlFor={inputId}
+            className="block text-sm font-medium text-foreground mb-2"
+          >
+            {label}
+            {required && <span className="text-red-500 ml-1">*</span>}
+          </label>
+        )}
+        
         <div className="relative">
           {/* Left Icon */}
           {LeftIcon && (
@@ -180,23 +189,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             )}
             {...props}
           />
-          
-          {/* Floating Label */}
-          {label && (
-            <label
-              htmlFor={inputId}
-              className={cn(
-                'absolute left-3 transition-all duration-200 pointer-events-none select-none',
-                LeftIcon && 'left-10',
-                focused || hasValue
-                  ? 'top-0 -translate-y-1/2 bg-white px-1 text-xs font-medium text-primary-600'
-                  : 'top-1/2 -translate-y-1/2 text-sm text-gray-400'
-              )}
-            >
-              {label}
-              {required && <span className="text-red-500 ml-1">*</span>}
-            </label>
-          )}
           
           {/* Right Side Icons */}
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">

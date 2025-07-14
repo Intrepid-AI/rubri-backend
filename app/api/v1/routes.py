@@ -40,6 +40,7 @@ logger = get_logger(__name__)
 async def upload_jd_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -59,6 +60,7 @@ async def upload_jd_file(
 async def upload_resume_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -77,6 +79,7 @@ async def upload_resume_file(
 @router.post("/upload/text/jd", response_model=DocumentResponse, tags=["Upload"])
 async def upload_jd_text(
     text_upload: TextUpload,
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -93,6 +96,7 @@ async def upload_jd_text(
 @router.post("/upload/text/resume", response_model=DocumentResponse, tags=["Upload"])
 async def upload_resume_text(
     text_upload: TextUpload,
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -110,6 +114,7 @@ async def upload_resume_text(
 @router.post("/rubric/create", tags=["Rubric"])
 async def create_rubric(
     rubric_create: RubricCreate,
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -208,6 +213,7 @@ async def create_rubric(
 @router.post("/questions/generate", response_model=QuestionGenerationResponse, tags=["Questions"])
 async def generate_interview_questions(
     question_request: QuestionGenerationCreate,
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -397,6 +403,7 @@ async def generate_interview_questions(
 @router.post("/questions/generate/quick", response_model=QuestionGenerationResponse, tags=["Questions"])
 async def generate_quick_questions(
     quick_request: QuickQuestionRequest,
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -534,6 +541,7 @@ async def generate_quick_questions(
 @router.post("/rubric/chat", response_model=RubricResponse, tags=["Rubric"])
 async def chat_with_rubric(
     chat_request: RubricChatRequest,
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -576,6 +584,7 @@ async def chat_with_rubric(
 async def edit_rubric(
     rubric_update: RubricUpdate,
     rubric_id: str = Path(..., description="The ID of the rubric to edit"),
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -603,6 +612,7 @@ async def edit_rubric(
 @router.get("/rubric/export/link/{rubric_id}", response_model=ExportLinkResponse, tags=["Rubric"])
 async def export_rubric_link(
     rubric_id: str = Path(..., description="The ID of the rubric to export"),
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -639,6 +649,7 @@ async def export_rubric_link(
 @router.get("/rubric/export/pdf/{rubric_id}", tags=["Rubric"])
 async def export_rubric_pdf(
     rubric_id: str = Path(..., description="The ID of the rubric to export"),
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -667,7 +678,7 @@ async def export_rubric_pdf(
 @router.post("/questions/generate/async", response_model=TaskInitiationResponse, tags=["Questions"])
 async def start_async_question_generation(
     question_request: AsyncQuestionGenerationRequest,
-    current_user = Depends(get_optional_user),
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -788,7 +799,7 @@ async def start_async_question_generation(
 @router.post("/questions/generate/quick/async", response_model=TaskInitiationResponse, tags=["Questions"])
 async def start_async_quick_question_generation(
     quick_request: AsyncQuickQuestionRequest,
-    current_user = Depends(get_optional_user),
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -964,6 +975,7 @@ async def list_tasks(
 async def list_rubrics(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    current_user = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
