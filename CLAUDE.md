@@ -64,13 +64,24 @@ app/services/qgen/agents/base_agent.py - Base agent class
 app/services/qgen/agents/*.py - Specialized agent implementations
 ```
 
-#### 2. Async Task Processing
-Long-running tasks use Celery with Redis broker:
+#### 2. Async Task Processing with Real-time Streaming
+Long-running tasks use Celery with Redis broker and real-time streaming:
 ```
 app/tasks/question_generation_tasks.py - Main async task
 app/tasks/progress_tracker.py - Progress tracking utility
 app/websocket_manager.py - WebSocket connections for real-time updates
+app/services/qgen/streaming/ - Real-time streaming system
 ```
+
+**Real-time Streaming Architecture:**
+- **Problem**: Celery workers run in separate processes and can't access WebSocket connections
+- **Solution**: Redis Pub/Sub bridge for cross-process communication
+- **Flow**: Celery Worker → Redis Pub/Sub → FastAPI Server → WebSocket → Frontend
+- **Components**:
+  - `app/services/qgen/streaming/redis_publisher.py` - Publishes events from Celery
+  - `app/services/streaming/redis_subscriber.py` - Subscribes to events in FastAPI
+  - `app/services/qgen/streaming/stream_manager_redis.py` - Simplified event emission
+  - `app/websocket_manager.py` - WebSocket management with Redis integration
 
 #### 3. LLM Provider Abstraction
 Supports multiple LLM providers through a unified interface:
@@ -122,11 +133,18 @@ The app uses a layered configuration approach:
 ### Critical Dependencies
 - **fastapi[all]** - Web framework with WebSocket support
 - **langchain** + **langchain-community** - Multi-agent orchestration
-- **celery[redis]** - Distributed task queue
+- **celery[redis]** - Distributed task queue with Redis broker
+- **redis** - Redis client for streaming and caching
 - **sqlalchemy** - ORM for database operations
 - **pdfplumber**, **python-docx** - Document parsing
 - **jinja2** - Template rendering for reports
 - Frontend: React 19, TypeScript, Vite, Tailwind CSS
+
+**Streaming Dependencies:**
+- **redis** - Pub/Sub for cross-process communication
+- **asyncio** - Async Redis client for FastAPI
+- **websockets** - WebSocket implementation in FastAPI
+- **json** - Event serialization/deserialization
 
 ## Detailed Architecture Documentation
 
@@ -208,17 +226,20 @@ The app uses a layered configuration approach:
    - Determines experience levels
    - Groups skills into categories
    - Provides evidence/context
+   - **Streaming**: Emits `skill_found` events for real-time updates
 
 2. **QuestionGenerationAgent**
    - Creates 2-3 questions per skill
    - 7 question types (mathematical, implementation, optimization, etc.)
    - Tailored to candidate experience
    - Includes rationale
+   - **Streaming**: Emits `question_generated` events with progress
 
 3. **QuestionEvaluationAgent**
    - 4-dimensional scoring (technical depth, relevance, difficulty, specificity)
    - Approves/rejects questions
    - Provides improvement feedback
+   - **Streaming**: Emits `evaluation_result` events for each question
 
 4. **ExpectedResponseAgent**
    - Key concepts checklist
@@ -226,12 +247,14 @@ The app uses a layered configuration approach:
    - Red flags
    - Follow-up questions
    - Scoring rubrics
+   - **Streaming**: Emits `response_generated` events with progress
 
 5. **ReportAssemblyAgent**
    - Groups by skill category
    - Time estimates
    - Candidate summary
    - Hiring recommendations
+   - **Streaming**: Emits `section_assembled` events for each section
 
 **State Management:**
 - Shared `MultiAgentInterviewState` TypedDict
@@ -343,6 +366,87 @@ rubri-frontend/src/
 5. Progress updates via WebSocket
 6. Final results via API/WebSocket
 
+### Real-time Streaming Implementation
+
+#### Problem & Solution
+**Initial Issue**: UI stuck on "Initializing..." because Celery workers couldn't access WebSocket connections due to process isolation.
+
+**Solution**: Implemented Redis Pub/Sub bridge for cross-process communication.
+
+#### Architecture Components
+
+**1. Redis Event Publisher (`app/services/qgen/streaming/redis_publisher.py`)**
+- Singleton pattern for connection reuse
+- Publishes events from Celery workers to Redis channels
+- Channel naming: `stream:task:{task_id}`
+- Automatic reconnection and error handling
+
+**2. Redis Event Subscriber (`app/services/streaming/redis_subscriber.py`)**
+- Subscribes to Redis channels in FastAPI process
+- Forwards events to WebSocket manager
+- Async Redis client for non-blocking I/O
+- Per-task subscription management
+
+**3. Simplified Stream Manager (`app/services/qgen/streaming/stream_manager_redis.py`)**
+- Removed complex buffering/retry logic
+- Direct Redis publishing for all agent events
+- Supports all event types: `agent_start`, `agent_thinking`, `skill_found`, `question_generated`, `evaluation_result`, `response_generated`, `section_assembled`, `agent_complete`, `error`
+
+**4. Enhanced WebSocket Manager (`app/websocket_manager.py`)**
+- Subscribes to Redis events on WebSocket connect
+- Unsubscribes on disconnect
+- Connection limits (3 per task, 100 global)
+- Automatic cleanup and monitoring
+
+#### Event Flow
+```
+AI Agent (Celery) → Redis Publisher → Redis Channel → Redis Subscriber (FastAPI) → WebSocket Manager → Frontend
+```
+
+#### Supported Event Types
+- `AGENT_START` - Agent begins processing
+- `AGENT_THINKING` - Agent status/progress updates
+- `SKILL_FOUND` - Skill extracted from documents
+- `QUESTION_GENERATED` - Interview question created
+- `EVALUATION_RESULT` - Question quality evaluation
+- `RESPONSE_GENERATED` - Expected answer generated
+- `SECTION_ASSEMBLED` - Report section completed
+- `AGENT_COMPLETE` - Agent finished successfully
+- `ERROR` - Processing error occurred
+
+#### Recent Fixes & Improvements
+
+**1. Schema Compatibility Fix**
+- Fixed `ReportAssemblyAgent` to use correct `InterviewSection` schema
+- Changed `section.category_name` → `section.section_name`
+- Changed `section.estimated_time_minutes` → `section.estimated_total_time`
+- Fixed question counting logic for sections
+
+**2. Agent Event Methods**
+- Added missing event emission methods to stream manager
+- `emit_evaluation_result_sync/async`
+- `emit_response_generated_sync/async`
+- `emit_section_assembled_sync/async`
+- `emit_agent_output_sync/async`
+- `emit_agent_progress_sync/async`
+
+**3. WebSocket URL Handling**
+- Fixed frontend WebSocket URL construction for HTTPS
+- Regex replacement: `replace(/^https?/, 'ws')`
+
+#### Testing & Monitoring
+- Test script: `test_redis_streaming.py`
+- Redis monitoring: `redis-cli MONITOR | grep stream:task`
+- WebSocket debugging in browser DevTools
+- Comprehensive logging throughout the pipeline
+
+#### Benefits
+- **Real-time Updates**: No more "Initializing..." - users see live progress
+- **Process Independence**: Celery and FastAPI communicate via Redis
+- **Scalability**: Multiple workers and FastAPI instances supported
+- **Reliability**: Redis handles message delivery and persistence
+- **Simplicity**: Removed complex buffering logic
+
 ### Deployment Considerations
 
 #### Current Limitations
@@ -386,9 +490,73 @@ rubri-frontend/src/
 3. **Full Stack Features:**
    - Design API contract
    - Implement backend endpoint
-   - Add frontend UI/logic
-   - Test integration
-   - Handle errors gracefully
+
+4. **Streaming System Development:**
+   - Test Redis connectivity: `redis-cli ping`
+   - Run streaming tests: `python test_redis_streaming.py`
+   - Monitor Redis events: `redis-cli MONITOR | grep stream:task`
+   - Debug WebSocket in browser DevTools Network tab
+
+### Troubleshooting Guide
+
+#### Common Issues
+
+**1. Streaming Events Not Appearing**
+- Check Redis connectivity: `redis-cli ping`
+- Verify WebSocket connection in browser DevTools
+- Monitor Redis channels: `redis-cli MONITOR`
+- Check task_id matches between publisher and subscriber
+
+**2. "Initializing..." Stuck State**
+- Ensure Redis server is running
+- Check Celery worker logs for errors
+- Verify WebSocket URL construction (HTTP vs HTTPS)
+- Test with `test_redis_streaming.py`
+
+**3. Agent Workflow Errors**
+- Check for missing stream manager event methods
+- Verify schema compatibility (e.g., `InterviewSection` fields)
+- Review agent logs for specific error messages
+
+**4. Performance Issues**
+- Monitor Redis memory usage: `redis-cli INFO memory`
+- Check WebSocket connection counts
+- Review event frequency and batching
+
+#### Development Commands
+
+**Start Full Development Environment:**
+```bash
+# Terminal 1: Start Redis
+redis-server
+
+# Terminal 2: Start FastAPI
+python main.py
+
+# Terminal 3: Start Celery Worker
+python start_celery_worker.py
+
+# Terminal 4: Start Frontend
+cd rubri-frontend && npm run dev
+```
+
+**Test Streaming System:**
+```bash
+# Test Redis streaming
+python test_redis_streaming.py
+
+# Monitor Redis events
+redis-cli MONITOR | grep stream:task
+
+# Subscribe to specific task
+redis-cli SUBSCRIBE 'stream:task:your_task_id'
+```
+
+**Debug WebSocket:**
+- Open browser DevTools → Network tab
+- Look for WebSocket connections
+- Check connection status and messages
+- Verify task_id in WebSocket URL
 
 ### Code Style Guidelines
 - Python: Black formatter, type hints
