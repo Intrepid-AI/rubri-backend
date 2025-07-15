@@ -1,6 +1,6 @@
 import json
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional, TYPE_CHECKING
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from app.services.qgen.agents.base_agent import BaseAgent
 from app.services.qgen.models.schemas import (
@@ -9,6 +9,9 @@ from app.services.qgen.models.schemas import (
     QuestionType, create_initial_state, LLMProvider, QuestionEvaluationOutput
 )
 from app.logger import get_logger
+
+if TYPE_CHECKING:
+    from app.services.qgen.streaming.stream_manager import StreamManager
 
 class QuestionEvaluationAgent(BaseAgent):
     """
@@ -22,13 +25,18 @@ class QuestionEvaluationAgent(BaseAgent):
     - Approve/reject questions based on quality criteria
     """
     
-    def __init__(self, llm_config: LLMConfig):
-        super().__init__("QuestionEvaluationAgent", llm_config, structured_output_model=QuestionEvaluationOutput)
+    def __init__(self, llm_config: LLMConfig, stream_manager: Optional['StreamManager'] = None):
+        super().__init__("QuestionEvaluationAgent", llm_config, 
+                        structured_output_model=QuestionEvaluationOutput,
+                        stream_manager=stream_manager)
     
     def execute(self, state: MultiAgentInterviewState) -> MultiAgentInterviewState:
         """Evaluate all generated questions for quality and appropriateness."""
         self.logger.info("Starting question evaluation process")
         start_time = time.time()
+        
+        # Emit streaming start event
+        self.stream_start_sync("Evaluating question quality and relevance...")
         
         try:
             generated_questions = state["generated_questions"]
@@ -39,12 +47,18 @@ class QuestionEvaluationAgent(BaseAgent):
                 self.logger.error(error_msg)
                 raise Exception(error_msg)
             
+            # Stream thinking about evaluation strategy
+            self.stream_thinking_sync(f"Analyzing {len(generated_questions)} questions for technical depth and relevance...")
+            
             # Evaluate each question
             evaluations = []
             approved_questions = []
+            total_questions = len(generated_questions)
             
             for i, question in enumerate(generated_questions, 1):
-                evaluation = self._evaluate_question(question, extracted_skills)
+                self.stream_thinking_sync(f"Evaluating question {i}/{total_questions}: {question.question_text[:80]}...")
+                
+                evaluation = self._evaluate_question(question, extracted_skills, i, total_questions)
                 evaluations.append(evaluation)
                 
                 # Approve question if it meets quality criteria
@@ -102,7 +116,9 @@ class QuestionEvaluationAgent(BaseAgent):
         return state
     
     def _evaluate_question(self, question: TechnicalQuestion, 
-                          extracted_skills: List[ExtractedSkill]) -> QuestionEvaluation:
+                          extracted_skills: List[ExtractedSkill],
+                          question_index: int = 1,
+                          total_questions: int = 1) -> QuestionEvaluation:
         """Evaluate a single question for quality and appropriateness."""
         
         # Find the relevant skill for this question
@@ -215,10 +231,49 @@ class QuestionEvaluationAgent(BaseAgent):
             ])
             
             evaluation = response.evaluations[0]
+            
+            # Stream evaluation result
+            if self.stream_manager:
+                self._ensure_async_context(self.stream_manager.emit_evaluation_result(
+                    question.question_id,
+                    {
+                        "question_id": question.question_id,
+                        "technical_depth_score": evaluation.technical_depth_score,
+                        "relevance_score": evaluation.relevance_score,
+                        "difficulty_appropriateness": evaluation.difficulty_appropriateness,
+                        "non_generic_score": evaluation.non_generic_score,
+                        "overall_quality": evaluation.overall_quality,
+                        "approved": evaluation.approved,
+                        "feedback": evaluation.feedback,
+                        "question_index": question_index,
+                        "total_questions": total_questions
+                    }
+                ))
+            
             return evaluation
         except Exception as e:
             # Fallback evaluation if LLM fails
             fallback_eval = self._create_fallback_evaluation(question, relevant_skill)
+            
+            # Stream fallback evaluation result
+            if self.stream_manager:
+                self._ensure_async_context(self.stream_manager.emit_evaluation_result(
+                    question.question_id,
+                    {
+                        "question_id": question.question_id,
+                        "technical_depth_score": fallback_eval.technical_depth_score,
+                        "relevance_score": fallback_eval.relevance_score,
+                        "difficulty_appropriateness": fallback_eval.difficulty_appropriateness,
+                        "non_generic_score": fallback_eval.non_generic_score,
+                        "overall_quality": fallback_eval.overall_quality,
+                        "approved": fallback_eval.approved,
+                        "feedback": fallback_eval.feedback,
+                        "question_index": question_index,
+                        "total_questions": total_questions,
+                        "is_fallback": True
+                    }
+                ))
+            
             return fallback_eval
     
     def _create_fallback_evaluation(self, question: TechnicalQuestion, 

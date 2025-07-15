@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Header, Footer } from './components/layout';
 import { HomePage, GeneratorPage } from './pages';
 import { ThemeProvider } from './contexts/ThemeContext';

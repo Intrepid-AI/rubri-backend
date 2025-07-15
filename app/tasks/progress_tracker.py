@@ -1,9 +1,13 @@
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from sqlalchemy.orm import Session
+import json
 
 from app.db_ops.models import TaskStatus
 from app.logger import get_logger
+
+if TYPE_CHECKING:
+    from app.services.qgen.streaming.stream_manager import StreamEvent
 
 logger = get_logger(__name__)
 
@@ -12,11 +16,13 @@ class ProgressTracker:
     Utility class for tracking and updating task progress in the database
     """
     
-    def __init__(self, task_id: str, db: Session, total_steps: int = 5):
+    def __init__(self, task_id: str, db: Session = None, total_steps: int = 5):
         self.task_id = task_id
         self.db = db
         self.total_steps = total_steps
         self.logger = logger
+        self._streaming_events: List[Dict[str, Any]] = []
+        self._streaming_enabled = False
     
     def start_task(self, 
                    task_type: str,
@@ -162,3 +168,80 @@ class ProgressTracker:
         except Exception as e:
             self.logger.error(f"Failed to get status for task {self.task_id}: {e}")
             return None
+    
+    def enable_streaming(self):
+        """Enable streaming event collection"""
+        self._streaming_enabled = True
+        self.logger.info(f"Streaming enabled for task {self.task_id}")
+    
+    def add_streaming_event(self, event: 'StreamEvent'):
+        """Add a streaming event to the buffer"""
+        if self._streaming_enabled:
+            self._streaming_events.append(event.to_dict())
+            
+            # Also update progress in database if we have db access
+            if self.db:
+                self._update_streaming_data()
+    
+    def _update_streaming_data(self):
+        """Update streaming data in database"""
+        try:
+            if not self.db:
+                return
+                
+            task_status = self.db.query(TaskStatus).filter(
+                TaskStatus.task_id == self.task_id
+            ).first()
+            
+            if task_status:
+                # Store streaming events in result_data
+                if not task_status.result_data:
+                    task_status.result_data = {}
+                
+                task_status.result_data['streaming_events'] = self._streaming_events[-100:]  # Keep last 100 events
+                task_status.result_data['streaming_enabled'] = True
+                
+                self.db.commit()
+                
+        except Exception as e:
+            self.logger.error(f"Failed to update streaming data for task {self.task_id}: {e}")
+            self.db.rollback()
+    
+    def get_streaming_events(self, since_sequence_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get streaming events, optionally since a specific sequence ID"""
+        if since_sequence_id is None:
+            return self._streaming_events.copy()
+        
+        # Filter events after the given sequence ID
+        filtered_events = []
+        for event in self._streaming_events:
+            if event.get('sequence_id', 0) > since_sequence_id:
+                filtered_events.append(event)
+        
+        return filtered_events
+    
+    def update_progress_with_stream(self, 
+                                  progress: int,
+                                  current_step: str,
+                                  step_number: Optional[int] = None,
+                                  streaming_data: Optional[Dict[str, Any]] = None):
+        """Update task progress with optional streaming data"""
+        self.update_progress(progress, current_step, step_number)
+        
+        if streaming_data and self.db:
+            try:
+                task_status = self.db.query(TaskStatus).filter(
+                    TaskStatus.task_id == self.task_id
+                ).first()
+                
+                if task_status:
+                    if not task_status.result_data:
+                        task_status.result_data = {}
+                    
+                    # Merge streaming data
+                    task_status.result_data.update(streaming_data)
+                    self.db.commit()
+                    
+            except Exception as e:
+                self.logger.error(f"Failed to update streaming data: {e}")
+                self.db.rollback()

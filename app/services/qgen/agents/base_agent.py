@@ -4,11 +4,15 @@ Integrated with Rubri Backend LLM Client
 """
 
 import time
+import asyncio
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Dict, Any, Optional, TYPE_CHECKING
 from app.services.qgen.models.schemas import LLMConfig, LLMProvider, AgentResult, MultiAgentInterviewState
 from app.logger import get_logger
 from app.llm_client_ops import LLM_Client_Ops
+
+if TYPE_CHECKING:
+    from app.services.qgen.streaming.stream_manager import StreamManager
 
 class LLMFactory:
     """Factory for creating LLM instances using Rubri's LLM client."""
@@ -50,10 +54,14 @@ class LLMFactory:
 class BaseAgent(ABC):
     """Base class for all agents in the multi-agent system."""
     
-    def __init__(self, agent_name: str, llm_config: LLMConfig, structured_output_model: type = None):
+    def __init__(self, agent_name: str, llm_config: LLMConfig, 
+                 structured_output_model: type = None, 
+                 stream_manager: Optional['StreamManager'] = None):
         self.agent_name = agent_name
         self.llm_config = llm_config
         self.logger = get_logger(f"{__name__}.{agent_name}")
+        self.stream_manager = stream_manager
+        self._streaming_enabled = stream_manager is not None
         
         self.logger.info(f"Initializing {agent_name} agent")
         self.llm = LLMFactory.create_llm(llm_config)
@@ -61,12 +69,94 @@ class BaseAgent(ABC):
             self.llm = self.llm.with_structured_output(structured_output_model)
             self.logger.info(f"Agent {agent_name} configured with structured output: {structured_output_model.__name__}")
         
-        self.logger.info(f"Successfully initialized {agent_name} agent")
+        self.logger.info(f"Successfully initialized {agent_name} agent (streaming: {self._streaming_enabled})")
     
     @abstractmethod
     def execute(self, state: MultiAgentInterviewState) -> MultiAgentInterviewState:
         """Execute the agent's logic. Must be implemented by subclasses."""
         raise NotImplementedError(f"{self.agent_name} must implement execute method")
+    
+    async def _stream_start(self, description: str = None) -> None:
+        """Emit agent start event if streaming is enabled."""
+        if self._streaming_enabled and self.stream_manager:
+            await self.stream_manager.emit_agent_start(self.agent_name, description)
+    
+    async def _stream_thinking(self, thought: str) -> None:
+        """Emit agent thinking event if streaming is enabled."""
+        if self._streaming_enabled and self.stream_manager:
+            await self.stream_manager.emit_agent_thinking(self.agent_name, thought)
+    
+    async def _stream_output(self, output: Dict[str, Any], chunk: bool = False) -> None:
+        """Emit agent output event if streaming is enabled."""
+        if self._streaming_enabled and self.stream_manager:
+            await self.stream_manager.emit_agent_output(self.agent_name, output, chunk)
+    
+    async def _stream_complete(self, summary: str = None) -> None:
+        """Emit agent completion event if streaming is enabled."""
+        if self._streaming_enabled and self.stream_manager:
+            await self.stream_manager.emit_agent_complete(self.agent_name, summary)
+    
+    async def _stream_error(self, error: str, details: Dict[str, Any] = None) -> None:
+        """Emit error event if streaming is enabled."""
+        if self._streaming_enabled and self.stream_manager:
+            await self.stream_manager.emit_error(self.agent_name, error, details)
+    
+    def _ensure_async_context(self, coro):
+        """Ensure coroutine runs in async context."""
+        try:
+            # For Celery workers, we need to run in a thread pool
+            import threading
+            import concurrent.futures
+            
+            def run_in_thread():
+                try:
+                    # Create new event loop for this thread
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    result = new_loop.run_until_complete(coro)
+                    new_loop.close()
+                    return result
+                except Exception as e:
+                    self.logger.error(f"Failed to run streaming event in thread: {e}")
+                    return None
+            
+            # Run in thread pool to avoid blocking
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(run_in_thread)
+                return future.result(timeout=1.0)  # 1 second timeout
+                
+        except Exception as e:
+            self.logger.error(f"Failed to ensure async context: {e}")
+            return None
+    
+    def stream_start_sync(self, description: str = None) -> None:
+        """Synchronous wrapper for streaming start event."""
+        if self._streaming_enabled:
+            self.logger.info(f"🔥 STREAM START: {self.agent_name} - {description}")
+            self._ensure_async_context(self._stream_start(description))
+        else:
+            self.logger.warning(f"Streaming not enabled for {self.agent_name}")
+    
+    def stream_thinking_sync(self, thought: str) -> None:
+        """Synchronous wrapper for streaming thinking event."""
+        if self._streaming_enabled:
+            self.logger.info(f"🔥 STREAM THINKING: {self.agent_name} - {thought[:50]}...")
+            self._ensure_async_context(self._stream_thinking(thought))
+    
+    def stream_output_sync(self, output: Dict[str, Any], chunk: bool = False) -> None:
+        """Synchronous wrapper for streaming output event."""
+        if self._streaming_enabled:
+            self._ensure_async_context(self._stream_output(output, chunk))
+    
+    def stream_complete_sync(self, summary: str = None) -> None:
+        """Synchronous wrapper for streaming completion event."""
+        if self._streaming_enabled:
+            self._ensure_async_context(self._stream_complete(summary))
+    
+    def stream_error_sync(self, error: str, details: Dict[str, Any] = None) -> None:
+        """Synchronous wrapper for streaming error event."""
+        if self._streaming_enabled:
+            self._ensure_async_context(self._stream_error(error, details))
     
     def _record_result(self, state: MultiAgentInterviewState, 
                       success: bool, output_data: Dict[str, Any] = None, 
@@ -94,6 +184,9 @@ class BaseAgent(ABC):
         if state:
             from langchain_core.messages import AIMessage
             state["messages"].append(AIMessage(content=f"[{self.agent_name}] {message}"))
+        
+        # Emit as thinking event if streaming
+        self.stream_thinking_sync(message)
     
     def _log_error(self, error: str, state: MultiAgentInterviewState = None):
         """Log error message."""
@@ -101,6 +194,9 @@ class BaseAgent(ABC):
         
         if state:
             state["errors"].append(f"[{self.agent_name}] ERROR: {error}")
+        
+        # Emit as error event if streaming
+        self.stream_error_sync(error)
     
     def _log_success(self, message: str, state: MultiAgentInterviewState = None):
         """Log success message."""
@@ -131,6 +227,9 @@ class BaseAgent(ABC):
         self.logger.info(f"Starting execution of {self.agent_name}")
         start_time = time.time()
         
+        # Emit streaming start event
+        self.stream_start_sync(f"{self.agent_name} is starting...")
+        
         try:
             # Validate inputs if required
             if required_fields:
@@ -152,6 +251,9 @@ class BaseAgent(ABC):
                 success=True,
                 execution_time=execution_time
             )
+            
+            # Emit streaming complete event
+            self.stream_complete_sync(f"{self.agent_name} completed successfully")
             
             return result_state
             
@@ -223,11 +325,13 @@ class AgentMetrics:
             ]
         }
 
-def create_agent_with_retry(agent_class, llm_config: LLMConfig, max_retries: int = 3):
+def create_agent_with_retry(agent_class, llm_config: LLMConfig, 
+                          stream_manager: Optional['StreamManager'] = None,
+                          max_retries: int = 3):
     """Create an agent with retry logic for LLM initialization."""
     for attempt in range(max_retries):
         try:
-            return agent_class(llm_config)
+            return agent_class(llm_config, stream_manager=stream_manager)
         except Exception as e:
             if attempt == max_retries - 1:
                 raise e

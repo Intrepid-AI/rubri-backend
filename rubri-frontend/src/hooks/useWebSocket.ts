@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { WebSocketMessage, ProgressUpdate } from '../types/api';
-import { webSocketManager, type ConnectionStatus } from '../utils/WebSocketManager';
+import { webSocketManager, type ConnectionStatus, type StreamEvent } from '../utils/WebSocketManager';
 
 interface UseWebSocketProps {
   taskId?: string;
@@ -8,6 +8,8 @@ interface UseWebSocketProps {
   onProgressUpdate?: (progress: ProgressUpdate) => void;
   onTaskCompleted?: (data: any) => void;
   onError?: (error: string) => void;
+  onStreamEvent?: (event: StreamEvent) => void;
+  onStreamBatch?: (events: StreamEvent[]) => void;
 }
 
 interface UseWebSocketReturn {
@@ -23,18 +25,20 @@ export const useWebSocket = ({
   enabled = true,
   onProgressUpdate,
   onTaskCompleted,
-  onError
+  onError,
+  onStreamEvent,
+  onStreamBatch
 }: UseWebSocketProps): UseWebSocketReturn => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   const currentTaskIdRef = useRef<string | null>(null);
   const isConnectingRef = useRef<boolean>(false);
-  const callbacksRef = useRef({ onProgressUpdate, onTaskCompleted, onError });
+  const callbacksRef = useRef({ onProgressUpdate, onTaskCompleted, onError, onStreamEvent, onStreamBatch });
 
   // Update callbacks ref when they change
   useEffect(() => {
-    callbacksRef.current = { onProgressUpdate, onTaskCompleted, onError };
-  }, [onProgressUpdate, onTaskCompleted, onError]);
+    callbacksRef.current = { onProgressUpdate, onTaskCompleted, onError, onStreamEvent, onStreamBatch };
+  }, [onProgressUpdate, onTaskCompleted, onError, onStreamEvent, onStreamBatch]);
 
   const sendMessage = useCallback((message: string) => {
     if (taskId) {
@@ -81,6 +85,24 @@ export const useWebSocket = ({
               callbacksRef.current.onError?.(error);
               isConnectingRef.current = false;
             },
+            onStreamEvent: (event) => {
+              callbacksRef.current.onStreamEvent?.(event);
+              setLastMessage({
+                type: 'stream_event',
+                task_id: taskId,
+                data: null,
+                event
+              });
+            },
+            onStreamBatch: (events) => {
+              callbacksRef.current.onStreamBatch?.(events);
+              setLastMessage({
+                type: 'stream_batch',
+                task_id: taskId,
+                data: null,
+                events
+              });
+            },
             onStatusChange: setConnectionStatus
           });
         }
@@ -101,31 +123,52 @@ export const useWebSocket = ({
         currentTaskIdRef.current = taskId;
         isConnectingRef.current = true;
         
-        webSocketManager.connect({
-          taskId,
-          onProgressUpdate: (progress) => {
-            callbacksRef.current.onProgressUpdate?.(progress);
-            setLastMessage({
-              type: 'progress_update',
-              task_id: taskId,
-              data: progress
-            });
-          },
-          onTaskCompleted: (data) => {
-            callbacksRef.current.onTaskCompleted?.(data);
-            setLastMessage({
-              type: 'task_completed',
-              task_id: taskId,
-              data
-            });
-            isConnectingRef.current = false;
-          },
-          onError: (error) => {
-            callbacksRef.current.onError?.(error);
-            isConnectingRef.current = false;
-          },
-          onStatusChange: setConnectionStatus
-        });
+        // Add small delay to ensure backend task is initialized
+        setTimeout(() => {
+          webSocketManager.connect({
+            taskId,
+            onProgressUpdate: (progress) => {
+              callbacksRef.current.onProgressUpdate?.(progress);
+              setLastMessage({
+                type: 'progress_update',
+                task_id: taskId,
+                data: progress
+              });
+            },
+            onTaskCompleted: (data) => {
+              callbacksRef.current.onTaskCompleted?.(data);
+              setLastMessage({
+                type: 'task_completed',
+                task_id: taskId,
+                data
+              });
+              isConnectingRef.current = false;
+            },
+            onError: (error) => {
+              callbacksRef.current.onError?.(error);
+              isConnectingRef.current = false;
+            },
+            onStreamEvent: (event) => {
+              callbacksRef.current.onStreamEvent?.(event);
+              setLastMessage({
+                type: 'stream_event',
+                task_id: taskId,
+                data: null,
+                event
+              });
+            },
+            onStreamBatch: (events) => {
+              callbacksRef.current.onStreamBatch?.(events);
+              setLastMessage({
+                type: 'stream_batch',
+                task_id: taskId,
+                data: null,
+                events
+              });
+            },
+            onStatusChange: setConnectionStatus
+          });
+        }, 500); // 500ms delay to ensure backend is ready
       }
     } else if (!enabled) {
       disconnect();

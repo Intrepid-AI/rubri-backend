@@ -1,17 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Progress, Card, CardContent } from '../ui';
-import { Brain, CheckCircle, Clock, Zap } from 'lucide-react';
+import { Brain, CheckCircle, Clock, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import type { GenerationState } from '../../types/api';
+import { StreamingProgress } from './StreamingProgress';
+import type { StreamEvent } from '../../utils/WebSocketManager';
 
 interface ProgressTrackerProps {
   state: GenerationState;
   startTime?: number;
+  streamingEnabled?: boolean;
+  onStreamEvent?: (event: StreamEvent) => void;
+  onStreamBatch?: (events: StreamEvent[]) => void;
+  latestStreamEvent?: any;
+  allStreamEvents?: any[];
 }
 
 export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   state,
-  startTime
+  startTime,
+  streamingEnabled = false,
+  onStreamEvent,
+  onStreamBatch,
+  latestStreamEvent,
+  allStreamEvents = []
 }) => {
+  const [showStreamingDetails, setShowStreamingDetails] = useState(false);
   const getElapsedTime = () => {
     if (!startTime) return '0s';
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -116,7 +129,39 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
             <span className="font-medium">Current activity:</span> {state.stage}
           </p>
         </div>
+
+        {/* Streaming Details Toggle */}
+        {streamingEnabled && (
+          <div className="mt-6">
+            <button
+              onClick={() => setShowStreamingDetails(!showStreamingDetails)}
+              className="w-full flex items-center justify-center space-x-2 text-sm text-gray-600 hover:text-gray-800 transition-colors p-2 rounded-lg hover:bg-gray-50"
+            >
+              <span>View Real-time Details</span>
+              {showStreamingDetails ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        )}
       </CardContent>
+
+      {/* Streaming Details Section */}
+      {streamingEnabled && showStreamingDetails && (
+        <div className="border-t border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Real-time AI Processing
+          </h3>
+          <StreamingProgress 
+            onStreamEvent={onStreamEvent}
+            onStreamBatch={onStreamBatch}
+            latestEvent={latestStreamEvent}
+            allEvents={allStreamEvents}
+          />
+        </div>
+      )}
     </Card>
   );
 };

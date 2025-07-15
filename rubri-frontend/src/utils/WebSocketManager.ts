@@ -8,6 +8,16 @@ interface WebSocketConnectionOptions {
   onTaskCompleted?: (data: any) => void;
   onError?: (error: string) => void;
   onStatusChange?: (status: ConnectionStatus) => void;
+  onStreamEvent?: (event: StreamEvent) => void;
+  onStreamBatch?: (events: StreamEvent[]) => void;
+}
+
+interface StreamEvent {
+  event_type: string;
+  agent_name: string;
+  data: any;
+  timestamp: number;
+  sequence_id: number;
 }
 
 class WebSocketManager {
@@ -18,8 +28,11 @@ class WebSocketManager {
 
   private getWebSocketUrl(taskId: string): string {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-    const wsUrl = baseUrl.replace(/^http/, 'ws');
-    return `${wsUrl}/ws/progress/${taskId}`;
+    // Handle both http and https protocols
+    const wsUrl = baseUrl.replace(/^https?/, 'ws');
+    // Ensure we don't have double slashes
+    const cleanUrl = wsUrl.replace(/\/+$/, '');
+    return `${cleanUrl}/ws/progress/${taskId}`;
   }
 
   connect(options: WebSocketConnectionOptions): void {
@@ -87,43 +100,84 @@ class WebSocketManager {
       ws.onerror = (error) => {
         console.error(`❌ WebSocket error for task ${taskId}:`, error);
         options.onStatusChange?.('error');
-        options.onError?.('WebSocket connection error');
+        options.onError?.(`WebSocket connection error: ${error.type || 'Unknown error'}`);
+      };
+
+      // Add connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          console.error(`❌ WebSocket connection timeout for task ${taskId}`);
+          ws.close();
+          this.connections.delete(taskId);
+          options.onStatusChange?.('error');
+          options.onError?.('Connection timeout');
+        }
+      }, 10000); // 10 second timeout
+
+      // Clear timeout on successful connection
+      const originalOnOpen = ws.onopen;
+      ws.onopen = (event) => {
+        clearTimeout(connectionTimeout);
+        originalOnOpen?.(event);
       };
 
     } catch (error) {
       console.error(`❌ Failed to create WebSocket for task ${taskId}:`, error);
       options.onStatusChange?.('error');
-      options.onError?.('Failed to create WebSocket connection');
+      options.onError?.(`Failed to create WebSocket connection: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   private handleMessage(taskId: string, event: MessageEvent): void {
     try {
+      // Skip WebSocket pong/ping messages
+      if (typeof event.data === 'string' && (event.data === 'pong' || event.data === 'ping')) {
+        return;
+      }
+      
+      console.log('🔍 RAW WebSocket message received:', event.data);
       const message: WebSocketMessage = JSON.parse(event.data);
+      console.log('✅ PARSED WebSocket message:', message);
+      
       const callbacks = this.callbacks.get(taskId);
-
-      if (!callbacks) return;
+      if (!callbacks) {
+        console.warn('⚠️ No callbacks found for task:', taskId);
+        return;
+      }
 
       switch (message.type) {
         case 'progress_update':
+          console.log('📊 Calling onProgressUpdate:', message.data);
           callbacks.onProgressUpdate?.(message.data as ProgressUpdate);
           break;
           
         case 'task_completed':
+          console.log('✅ Calling onTaskCompleted:', message.data);
           callbacks.onTaskCompleted?.(message.data);
           // Auto-disconnect after task completion
           setTimeout(() => this.disconnect(taskId), 1000);
           break;
           
         case 'error':
+          console.log('❌ Calling onError:', message.data.error);
           callbacks.onError?.(message.data.error || 'Unknown WebSocket error');
           break;
           
+        case 'stream_event':
+          console.log('🔥 Calling onStreamEvent:', message.event);
+          callbacks.onStreamEvent?.(message.event as StreamEvent);
+          break;
+          
+        case 'stream_batch':
+          console.log('📦 Calling onStreamBatch:', message.events);
+          callbacks.onStreamBatch?.(message.events as StreamEvent[]);
+          break;
+          
         default:
-          console.log(`Unknown WebSocket message type for task ${taskId}:`, message.type);
+          console.warn('⚠️ Unknown WebSocket message type:', message.type);
       }
     } catch (error) {
-      console.error(`Error parsing WebSocket message for task ${taskId}:`, error);
+      console.error('Error parsing WebSocket message:', error, 'Raw data:', event.data);
       const callbacks = this.callbacks.get(taskId);
       callbacks?.onError?.('Failed to parse WebSocket message');
     }
@@ -202,5 +256,6 @@ class WebSocketManager {
   }
 }
 
-// Export singleton instance
+// Export singleton instance and types
 export const webSocketManager = new WebSocketManager();
+export type { StreamEvent, WebSocketConnectionOptions };

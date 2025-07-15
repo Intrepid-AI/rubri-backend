@@ -1,7 +1,7 @@
 import os
 import logging
 import yaml # Added for YAML loading
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, AsyncIterator
 from enum import Enum
 
 # Default invoke parameters (can be customized per provider if needed)
@@ -9,7 +9,7 @@ default_invoke_params: Dict[str, Any] = {}
 
 # LangChain imports
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 from langchain_core.exceptions import LangChainException
 
 # Provider-specific imports
@@ -112,6 +112,15 @@ class LLM_Client_Ops:
     Operations manager for interacting with various LLM providers via LangChain.
     """
     _loaded_llm_yaml_config: Optional[Dict[str, Any]] = None
+    
+    # Providers that support streaming
+    STREAMING_PROVIDERS = {
+        ModelProvider.OPENAI,
+        ModelProvider.AZURE_OPENAI,
+        ModelProvider.GEMINI,
+        ModelProvider.GROQ,
+        # Portkey depends on underlying provider
+    }
 
     @classmethod
     def _get_llm_yaml_config(cls) -> Dict[str, Any]:
@@ -142,9 +151,11 @@ class LLM_Client_Ops:
 
         self.llm_client: Optional[BaseChatModel] = None
         self._invoke_params: Dict[str, Any] = {} 
+        self._supports_streaming = False
         
         self.validate_environment_and_config()
         self._initialize_client()
+        self._check_streaming_support()
 
     def validate_environment_and_config(self):
 
@@ -265,6 +276,27 @@ class LLM_Client_Ops:
             logger.error(f"Health check failed for {self.provider_name}: {e}")
             return False
 
+    def _check_streaming_support(self):
+        """Check if the current provider supports streaming."""
+        try:
+            provider = ModelProvider(self.provider_name)
+            self._supports_streaming = provider in self.STREAMING_PROVIDERS
+            
+            # For Portkey, check the underlying provider
+            if provider == ModelProvider.PORTKEY:
+                # For now, assume Portkey supports streaming
+                # In production, you'd check the actual routing config
+                self._supports_streaming = True
+                
+            logger.info(f"Provider {self.provider_name} streaming support: {self._supports_streaming}")
+        except:
+            self._supports_streaming = False
+    
+    @property
+    def supports_streaming(self) -> bool:
+        """Check if the provider supports streaming."""
+        return self._supports_streaming
+
     def generate_text(self, prompt: str, system_message: Optional[str] = None) -> str:
 
         if not self.llm_client:
@@ -282,6 +314,90 @@ class LLM_Client_Ops:
         except Exception as e:
             logger.error(f"Text generation failed for {self.provider_name}: {e}")
             raise RuntimeError(f"Text generation failed: {e}")
+    
+    async def generate_text_stream(self, prompt: str, system_message: Optional[str] = None) -> AsyncIterator[str]:
+        """
+        Generate text with streaming support.
+        
+        Args:
+            prompt: The user prompt
+            system_message: Optional system message
+            
+        Yields:
+            String chunks of the generated text
+        """
+        if not self.llm_client:
+            raise RuntimeError("LLM client is not initialized.")
+        
+        if not self._supports_streaming:
+            # Fallback for non-streaming providers
+            result = self.generate_text(prompt, system_message)
+            yield result
+            return
+        
+        messages: List[BaseMessage] = []
+        if system_message:
+            messages.append(SystemMessage(content=system_message))
+        messages.append(HumanMessage(content=prompt))
+        
+        try:
+            # Use astream for streaming responses
+            async for chunk in self.llm_client.astream(messages, **self._invoke_params):
+                if hasattr(chunk, 'content') and chunk.content:
+                    yield chunk.content
+        except Exception as e:
+            logger.error(f"Text streaming failed for {self.provider_name}: {e}")
+            raise RuntimeError(f"Text streaming failed: {e}")
+    
+    def invoke_with_structured_output(self, messages: List[BaseMessage], 
+                                    structured_output_model: type) -> Any:
+        """
+        Invoke the LLM with structured output support.
+        
+        Args:
+            messages: List of messages to send
+            structured_output_model: Pydantic model for structured output
+            
+        Returns:
+            Instance of the structured output model
+        """
+        if not self.llm_client:
+            raise RuntimeError("LLM client is not initialized.")
+        
+        try:
+            # Create a new client with structured output
+            structured_client = self.llm_client.with_structured_output(structured_output_model)
+            response = structured_client.invoke(messages, **self._invoke_params)
+            return response
+        except Exception as e:
+            logger.error(f"Structured output generation failed for {self.provider_name}: {e}")
+            raise RuntimeError(f"Structured output generation failed: {e}")
+    
+    async def agenerate_text(self, prompt: str, system_message: Optional[str] = None) -> str:
+        """
+        Async version of generate_text.
+        
+        Args:
+            prompt: The user prompt
+            system_message: Optional system message
+            
+        Returns:
+            Generated text
+        """
+        if not self.llm_client:
+            raise RuntimeError("LLM client is not initialized.")
+        
+        messages: List[BaseMessage] = []
+        if system_message:
+            messages.append(SystemMessage(content=system_message))
+        messages.append(HumanMessage(content=prompt))
+        
+        try:
+            response = await self.llm_client.ainvoke(messages, **self._invoke_params)
+            return response.content
+        except Exception as e:
+            logger.error(f"Async text generation failed for {self.provider_name}: {e}")
+            raise RuntimeError(f"Async text generation failed: {e}")
 
 
 if __name__ == "__main__":

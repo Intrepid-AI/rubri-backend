@@ -59,6 +59,8 @@ export const GeneratorPage: React.FC<GeneratorPageProps> = ({ onBack }) => {
   const [result, setResult] = useState<QuestionGenerationResponse | null>(null);
   const [error, setError] = useState<string>('');
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  const [streamEvents, setStreamEvents] = useState<any[]>([]);
+  const [latestStreamEvent, setLatestStreamEvent] = useState<any>(null);
 
   // WebSocket integration for real-time progress updates
   useWebSocket({
@@ -71,6 +73,16 @@ export const GeneratorPage: React.FC<GeneratorPageProps> = ({ onBack }) => {
         stage: progress.current_step,
         estimatedTimeRemaining: progress.estimated_remaining_minutes
       }));
+    },
+    onStreamEvent: (event) => {
+      console.log('🔥 Stream Event:', event);
+      setStreamEvents(prev => [...prev, event]);
+      setLatestStreamEvent(event);
+    },
+    onStreamBatch: (events) => {
+      console.log('🔥 Stream Batch:', events);
+      setStreamEvents(prev => [...prev, ...events]);
+      setLatestStreamEvent(events[events.length - 1]);
     },
     onTaskCompleted: async (data: any) => {
       if (data.status === 'completed' && data.rubric_id) {
@@ -292,6 +304,15 @@ export const GeneratorPage: React.FC<GeneratorPageProps> = ({ onBack }) => {
           <ProgressTracker 
             state={generationState}
             startTime={generationStartTime}
+            streamingEnabled={true}
+            onStreamEvent={(event) => {
+              console.log('🔥 Stream Event:', event);
+            }}
+            onStreamBatch={(events) => {
+              console.log('🔥 Stream Batch:', events);
+            }}
+            latestStreamEvent={latestStreamEvent}
+            allStreamEvents={streamEvents}
           />
         )}
 

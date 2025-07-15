@@ -12,6 +12,7 @@ from app.api.v1.datamodels import DocumentType
 from app.logger import get_logger
 from app.tasks.progress_tracker import ProgressTracker
 from app.tasks.email_tasks import send_completion_email
+from app.services.qgen.streaming.stream_manager import StreamManager
 
 logger = get_logger(__name__)
 
@@ -149,12 +150,16 @@ def generate_interview_questions_async(
         
         llm_provider_enum = provider_mapping.get(llm_provider, LLMProvider.OPENAI)
         
-        # Create interview system with progress tracking
+        # Create interview system with progress tracking and streaming
         interview_system = _create_interview_system_with_progress_tracking(
             llm_provider_enum,
             "gpt-4o-mini" if llm_provider_enum == LLMProvider.OPENAI else "gemini-2.0-flash-001",
-            progress_tracker
+            progress_tracker,
+            task_id
         )
+        
+        # Stream manager now handles cross-process communication gracefully
+        logger.info(f"Starting multi-agent system with cross-process streaming for task {task_id}")
         
         # Generate interview questions
         logger.info(f"Starting multi-agent interview generation for task {task_id}")
@@ -308,11 +313,12 @@ def generate_quick_questions_async(
         
         llm_provider_enum = provider_mapping.get(llm_provider, LLMProvider.GEMINI)
         
-        # Create interview system with progress tracking
+        # Create interview system with progress tracking and streaming
         interview_system = _create_interview_system_with_progress_tracking(
             llm_provider_enum,
             "gpt-4o-mini" if llm_provider_enum == LLMProvider.OPENAI else "gemini-2.0-flash-001",
-            progress_tracker
+            progress_tracker,
+            task_id
         )
         
         # Generate interview questions
@@ -415,11 +421,11 @@ def generate_quick_questions_async(
         if db:
             db.close()
 
-def _create_interview_system_with_progress_tracking(llm_provider, llm_model, progress_tracker):
+def _create_interview_system_with_progress_tracking(llm_provider, llm_model, progress_tracker, task_id=None):
     """
-    Create interview system and integrate progress tracking from the start
+    Create interview system and integrate progress tracking and streaming from the start
     """
-    logger.info("DEBUG: Creating interview system with integrated progress tracking")
+    logger.info("DEBUG: Creating interview system with integrated progress tracking and streaming")
     
     from app.services.qgen.orchestrator.multi_agent_system import _create_interview_system_with_progress_patching
     from app.services.qgen.models.schemas import LLMConfig
@@ -431,8 +437,15 @@ def _create_interview_system_with_progress_tracking(llm_provider, llm_model, pro
         temperature=0.1
     )
     
-    # Create the system with progress tracking integrated during initialization
-    system = _create_interview_system_with_progress_patching(llm_config, progress_tracker)
+    # Create stream manager if task_id is provided
+    stream_manager = None
+    if task_id:
+        stream_manager = StreamManager(task_id, websocket_enabled=True)
+        progress_tracker.enable_streaming()
+        logger.info(f"Created stream manager for task {task_id}")
+    
+    # Create the system with progress tracking and streaming integrated during initialization
+    system = _create_interview_system_with_progress_patching(llm_config, progress_tracker, stream_manager)
     
     return system
 

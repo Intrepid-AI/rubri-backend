@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { User, AuthTokens, LoginResponse } from '../types/api';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
+import type { User, AuthTokens } from '../types/api';
 import { authAPI } from '../services/api';
 
 interface AuthContextType {
@@ -50,7 +51,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           try {
             // Get user profile with the new token
             const currentUser = await authAPI.getCurrentUser(accessToken);
-            const tokens = { access_token: accessToken, refresh_token: refreshToken };
+            const tokens: AuthTokens = { 
+              access_token: accessToken, 
+              refresh_token: refreshToken,
+              token_type: 'bearer',
+              expires_in: 3600
+            };
             
             // Save auth state
             saveAuthState(currentUser, tokens);
@@ -79,7 +85,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         if (storedTokens && storedUser) {
           const parsedTokens = JSON.parse(storedTokens) as AuthTokens;
-          const parsedUser = JSON.parse(storedUser) as User;
+          JSON.parse(storedUser) as User;
 
           // Check if tokens are still valid by fetching user profile
           try {

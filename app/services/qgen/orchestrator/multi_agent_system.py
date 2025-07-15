@@ -2,7 +2,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import HumanMessage
 import time
-from typing import Literal
+from typing import Literal, Optional, TYPE_CHECKING
 from app.services.qgen.models.schemas import (
     LLMConfig, LLMProvider, MultiAgentInterviewState, ProcessingStage,
     create_initial_state
@@ -14,6 +14,9 @@ from app.services.qgen.agents.expected_response_agent import ExpectedResponseAge
 from app.services.qgen.agents.report_assembly_agent import ReportAssemblyAgent
 from app.services.qgen.utils.report_formatter import format_final_report
 from app.logger import get_logger
+
+if TYPE_CHECKING:
+    from app.services.qgen.streaming.stream_manager import StreamManager
 
 class MultiAgentTechnicalInterviewSystem:
     """
@@ -27,21 +30,23 @@ class MultiAgentTechnicalInterviewSystem:
     5. ReportAssemblyAgent - Creates final comprehensive report
     """
     
-    def __init__(self, llm_config: LLMConfig):
+    def __init__(self, llm_config: LLMConfig, stream_manager: Optional['StreamManager'] = None):
         self.llm_config = llm_config
+        self.stream_manager = stream_manager
         self.memory = MemorySaver()
         self.logger = get_logger(__name__)
         
         self.logger.info("Initializing Multi-Agent Technical Interview System")
         self.logger.info(f"LLM Configuration: Provider={llm_config.provider.value}, Model={llm_config.model}, Temperature={llm_config.temperature}")
+        self.logger.info(f"Streaming enabled: {stream_manager is not None}")
         
-        # Initialize all agents
+        # Initialize all agents with streaming support
         self.logger.info("Initializing all agents...")
-        self.skill_extractor = SkillExtractionAgent(llm_config)
-        self.question_generator = QuestionGenerationAgent(llm_config)
-        self.question_evaluator = QuestionEvaluationAgent(llm_config)
-        self.response_generator = ExpectedResponseAgent(llm_config)
-        self.report_assembler = ReportAssemblyAgent(llm_config)
+        self.skill_extractor = SkillExtractionAgent(llm_config, stream_manager)
+        self.question_generator = QuestionGenerationAgent(llm_config, stream_manager)
+        self.question_evaluator = QuestionEvaluationAgent(llm_config, stream_manager)
+        self.response_generator = ExpectedResponseAgent(llm_config, stream_manager)
+        self.report_assembler = ReportAssemblyAgent(llm_config, stream_manager)
         self.logger.info("All agents initialized successfully")
         
         # Build workflow
@@ -415,16 +420,16 @@ def create_technical_interview_system(llm_provider: LLMProvider = LLMProvider.OP
     logger.info("Technical interview system created successfully")
     return system
 
-def _create_interview_system_with_progress_patching(llm_config, progress_tracker):
+def _create_interview_system_with_progress_patching(llm_config, progress_tracker, stream_manager=None):
     """
-    Create interview system with progress tracking integrated during initialization
+    Create interview system with progress tracking and streaming integrated during initialization
     """
     logger = get_logger(__name__)
-    logger.info("Creating interview system with progress tracking integration")
+    logger.info("Creating interview system with progress tracking and streaming integration")
     
-    # Create system with modified initialization that includes progress patching
-    system = ProgressTrackingMultiAgentSystem(llm_config, progress_tracker)
-    logger.info("Progress-tracking interview system created successfully")
+    # Create system with modified initialization that includes progress patching and streaming
+    system = ProgressTrackingMultiAgentSystem(llm_config, progress_tracker, stream_manager)
+    logger.info("Progress-tracking and streaming interview system created successfully")
     return system
 
 class ProgressTrackingMultiAgentSystem(MultiAgentTechnicalInterviewSystem):
@@ -433,22 +438,24 @@ class ProgressTrackingMultiAgentSystem(MultiAgentTechnicalInterviewSystem):
     during initialization, before workflow compilation
     """
     
-    def __init__(self, llm_config, progress_tracker):
+    def __init__(self, llm_config, progress_tracker, stream_manager=None):
         self.progress_tracker = progress_tracker
+        self.stream_manager = stream_manager
         self.llm_config = llm_config
         self.memory = MemorySaver()
         self.logger = get_logger(__name__)
         
-        self.logger.info("Initializing Multi-Agent Technical Interview System with Progress Tracking")
+        self.logger.info("Initializing Multi-Agent Technical Interview System with Progress Tracking and Streaming")
         self.logger.info(f"LLM Configuration: Provider={llm_config.provider.value}, Model={llm_config.model}, Temperature={llm_config.temperature}")
+        self.logger.info(f"Streaming enabled: {stream_manager is not None}")
         
-        # Initialize all agents
+        # Initialize all agents with streaming support
         self.logger.info("Initializing all agents...")
-        self.skill_extractor = SkillExtractionAgent(llm_config)
-        self.question_generator = QuestionGenerationAgent(llm_config)
-        self.question_evaluator = QuestionEvaluationAgent(llm_config)
-        self.response_generator = ExpectedResponseAgent(llm_config)
-        self.report_assembler = ReportAssemblyAgent(llm_config)
+        self.skill_extractor = SkillExtractionAgent(llm_config, stream_manager)
+        self.question_generator = QuestionGenerationAgent(llm_config, stream_manager)
+        self.question_evaluator = QuestionEvaluationAgent(llm_config, stream_manager)
+        self.response_generator = ExpectedResponseAgent(llm_config, stream_manager)
+        self.report_assembler = ReportAssemblyAgent(llm_config, stream_manager)
         self.logger.info("All agents initialized successfully")
         
         # PATCH AGENTS BEFORE WORKFLOW BUILDING

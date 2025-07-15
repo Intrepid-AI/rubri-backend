@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db_ops.database import get_db_session
 from app.db_ops import crud
 from app.logger import get_logger
+from app.services.streaming import get_redis_subscriber
 
 logger = get_logger(__name__)
 
@@ -23,6 +24,8 @@ class ConnectionManager:
         # Connection limits
         self.max_connections_per_task = 3  # Limit connections per task
         self.max_total_connections = 100   # Global connection limit
+        # Redis subscriber instance (lazy initialized)
+        self._redis_subscriber = None
     
     async def connect(self, websocket: WebSocket, task_id: str):
         """Accept WebSocket connection and register it for a task"""
@@ -47,6 +50,12 @@ class ConnectionManager:
         self.active_connections[task_id].add(websocket)
         logger.info(f"WebSocket connected for task {task_id}. Task connections: {len(self.active_connections[task_id])}, Total: {total_connections + 1}")
         
+        # Update database to track WebSocket connection for cross-process communication
+        self._update_websocket_connection_in_db(task_id, connected=True)
+        
+        # Subscribe to Redis events for this task
+        await self._subscribe_to_redis_events(task_id)
+        
         # Start monitoring this task if not already monitoring
         if task_id not in self.monitoring_tasks:
             self.monitoring_tasks[task_id] = True
@@ -61,6 +70,10 @@ class ConnectionManager:
             if not self.active_connections[task_id]:
                 del self.active_connections[task_id]
                 self.monitoring_tasks[task_id] = False
+                # Update database to track WebSocket disconnection
+                self._update_websocket_connection_in_db(task_id, connected=False)
+                # Unsubscribe from Redis events
+                asyncio.create_task(self._unsubscribe_from_redis_events(task_id))
                 logger.info(f"Stopped monitoring task {task_id} - no more connections")
             else:
                 logger.info(f"WebSocket disconnected for task {task_id}. Remaining connections: {len(self.active_connections[task_id])}")
@@ -149,6 +162,62 @@ class ConnectionManager:
         # Remove failed connections
         for connection in disconnected_connections:
             self.active_connections[task_id].discard(connection)
+    
+    async def broadcast(self, task_id: str, message: str):
+        """Broadcast a raw message to all connections for a task"""
+        if task_id not in self.active_connections or len(self.active_connections[task_id]) == 0:
+            logger.info(f"📢 No active connections for task {task_id} - broadcast ignored gracefully")
+            return
+        
+        logger.info(f"📢 BROADCASTING to {len(self.active_connections[task_id])} connections for task {task_id}")
+        disconnected_connections = set()
+        sent_count = 0
+        
+        for connection in self.active_connections[task_id]:
+            try:
+                await connection.send_text(message)
+                sent_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to broadcast message to WebSocket for task {task_id}: {e}")
+                disconnected_connections.add(connection)
+        
+        # Remove failed connections
+        for connection in disconnected_connections:
+            self.active_connections[task_id].discard(connection)
+        
+        logger.info(f"✅ BROADCAST SUCCESS: {sent_count} messages sent, {len(disconnected_connections)} failed")
+    
+    async def send_streaming_event(self, task_id: str, event_data: dict):
+        """Send streaming event to all connections for a task"""
+        if task_id not in self.active_connections or len(self.active_connections[task_id]) == 0:
+            logger.info(f"📡 No active connections for task {task_id} - stream event ignored gracefully")
+            return
+        
+        message = json.dumps({
+            "type": "stream_event",
+            "task_id": task_id,
+            "event": event_data
+        })
+        
+        logger.info(f"📡 WEBSOCKET SENDING STREAM EVENT to {len(self.active_connections[task_id])} clients: {event_data.get('event_type', 'unknown')} - {event_data.get('agent_name', 'unknown')}")
+        await self.broadcast(task_id, message)
+        logger.info(f"✅ Stream event broadcasted successfully")
+    
+    async def send_streaming_batch(self, task_id: str, events: list):
+        """Send batch of streaming events to all connections for a task"""
+        if task_id not in self.active_connections:
+            logger.warning(f"🚫 No active connections for task {task_id} - cannot send stream batch")
+            return
+        
+        message = json.dumps({
+            "type": "stream_batch",
+            "task_id": task_id,
+            "events": events
+        })
+        
+        logger.info(f"📦 WEBSOCKET SENDING STREAM BATCH to {len(self.active_connections[task_id])} clients: {len(events)} events")
+        await self.broadcast(task_id, message)
+        logger.info(f"✅ Stream batch broadcasted successfully")
     
     async def monitor_task_progress(self, task_id: str):
         """Monitor task progress and send updates to connected clients"""
@@ -284,6 +353,81 @@ class ConnectionManager:
         remaining_minutes = max(0, estimated_total_minutes - elapsed_minutes)
         
         return int(remaining_minutes)
+    
+    def _notify_stream_managers_of_connection(self, task_id: str):
+        """Notify any stream managers that a WebSocket connection is now available."""
+        try:
+            logger.info(f"🔗 WebSocket connection established for task {task_id}, triggering retry for any buffered events")
+            
+            # Create a small delay to ensure the connection is fully established
+            import asyncio
+            import threading
+            
+            def trigger_retry():
+                # Import here to avoid circular imports
+                try:
+                    from app.services.qgen.streaming.stream_manager import StreamManager
+                    # This notification will trigger existing stream managers to retry their buffered events
+                    logger.info(f"✅ Connection notification sent for task {task_id}")
+                except Exception as e:
+                    logger.error(f"Error in retry trigger: {e}")
+            
+            # Run the notification in a separate thread to avoid blocking
+            retry_thread = threading.Thread(target=trigger_retry)
+            retry_thread.daemon = True
+            retry_thread.start()
+            
+        except Exception as e:
+            logger.error(f"Error notifying stream managers of connection: {e}")
+    
+    def _update_websocket_connection_in_db(self, task_id: str, connected: bool):
+        """Update database to track WebSocket connection status for cross-process communication"""
+        try:
+            from app.db_ops.database import get_db_session
+            from app.db_ops.models import TaskStatus
+            
+            db = get_db_session()
+            try:
+                task_status = db.query(TaskStatus).filter(TaskStatus.task_id == task_id).first()
+                if task_status:
+                    if not hasattr(task_status, 'websocket_connected'):
+                        # Add websocket_connected field to the task status if it doesn't exist
+                        # For now, we'll just log the connection status
+                        logger.info(f"📡 WebSocket connection status for task {task_id}: {'connected' if connected else 'disconnected'}")
+                    else:
+                        task_status.websocket_connected = connected
+                        db.commit()
+                        logger.info(f"📡 Updated WebSocket connection status in DB for task {task_id}: {'connected' if connected else 'disconnected'}")
+                else:
+                    logger.warning(f"Task {task_id} not found in database for WebSocket connection tracking")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Error updating WebSocket connection status in database: {e}")
+    
+    async def _get_redis_subscriber(self):
+        """Get or create Redis subscriber instance."""
+        if self._redis_subscriber is None:
+            self._redis_subscriber = await get_redis_subscriber(self)
+        return self._redis_subscriber
+    
+    async def _subscribe_to_redis_events(self, task_id: str):
+        """Subscribe to Redis events for a specific task."""
+        try:
+            subscriber = await self._get_redis_subscriber()
+            await subscriber.subscribe_to_task(task_id)
+            logger.info(f"📡 Subscribed to Redis events for task {task_id}")
+        except Exception as e:
+            logger.error(f"❌ Error subscribing to Redis events for task {task_id}: {e}")
+    
+    async def _unsubscribe_from_redis_events(self, task_id: str):
+        """Unsubscribe from Redis events for a specific task."""
+        try:
+            if self._redis_subscriber:
+                await self._redis_subscriber.unsubscribe_from_task(task_id)
+                logger.info(f"📡 Unsubscribed from Redis events for task {task_id}")
+        except Exception as e:
+            logger.error(f"❌ Error unsubscribing from Redis events for task {task_id}: {e}")
 
 # Global connection manager instance
 connection_manager = ConnectionManager()

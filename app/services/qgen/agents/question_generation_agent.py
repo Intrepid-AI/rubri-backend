@@ -1,6 +1,6 @@
 import json
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional, TYPE_CHECKING
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from app.services.qgen.agents.base_agent import BaseAgent
 from app.services.qgen.models.schemas import (
@@ -9,6 +9,9 @@ from app.services.qgen.models.schemas import (
     create_initial_state, LLMProvider, QuestionGenerationOutput
 )
 from app.logger import get_logger
+
+if TYPE_CHECKING:
+    from app.services.qgen.streaming.stream_manager import StreamManager
 
 class QuestionGenerationAgent(BaseAgent):
     """
@@ -21,13 +24,18 @@ class QuestionGenerationAgent(BaseAgent):
     - Target specific skills with evidence-based rationale
     """
     
-    def __init__(self, llm_config: LLMConfig):
-        super().__init__("QuestionGenerationAgent", llm_config, structured_output_model=QuestionGenerationOutput)
+    def __init__(self, llm_config: LLMConfig, stream_manager: Optional['StreamManager'] = None):
+        super().__init__("QuestionGenerationAgent", llm_config, 
+                        structured_output_model=QuestionGenerationOutput,
+                        stream_manager=stream_manager)
     
     def execute(self, state: MultiAgentInterviewState) -> MultiAgentInterviewState:
         """Generate technical questions for all extracted skills."""
         self.logger.info("Starting question generation process")
         start_time = time.time()
+        
+        # Emit streaming start event
+        self.stream_start_sync("Generating technical interview questions...")
         
         try:
             extracted_skills = state["extracted_skills"]
@@ -39,15 +47,23 @@ class QuestionGenerationAgent(BaseAgent):
                 self.logger.error(error_msg)
                 raise Exception(error_msg)
             
+            # Stream thinking about strategy
+            self.stream_thinking_sync(f"Preparing to generate questions for {len(extracted_skills)} skills...")
+            
             # Generate questions for each skill
             all_questions = []
             
             # Group skills by category for better question generation
             skills_by_category = self._group_skills_by_category(extracted_skills)
+            total_categories = len(skills_by_category)
             
-            for category_name, skills in skills_by_category.items():
+            self.stream_thinking_sync(f"Generating questions across {total_categories} skill categories...")
+            
+            for category_index, (category_name, skills) in enumerate(skills_by_category.items(), 1):
+                self.stream_thinking_sync(f"Processing category {category_index}/{total_categories}: {category_name} ({len(skills)} skills)")
+                
                 category_questions = self._generate_questions_for_category(
-                    category_name, skills, input_scenario
+                    category_name, skills, input_scenario, category_index, total_categories
                 )
                 all_questions.extend(category_questions)
             
@@ -109,7 +125,9 @@ class QuestionGenerationAgent(BaseAgent):
     
     def _generate_questions_for_category(self, category_name: str, 
                                        skills: List[ExtractedSkill], 
-                                       input_scenario: InputScenario) -> List[TechnicalQuestion]:
+                                       input_scenario: InputScenario,
+                                       category_index: int = 1,
+                                       total_categories: int = 1) -> List[TechnicalQuestion]:
         """Generate questions for a specific category of skills."""
         
         # Prepare skills context for the LLM
@@ -193,10 +211,47 @@ class QuestionGenerationAgent(BaseAgent):
                 HumanMessage(content=human_prompt)
             ])
             
-            return response.questions
+            # Stream generated questions
+            questions = response.questions
+            for i, question in enumerate(questions):
+                if self.stream_manager:
+                    self._ensure_async_context(self.stream_manager.emit_question_generated(
+                        {
+                            "question_id": question.question_id,
+                            "question_text": question.question_text,
+                            "question_type": question.question_type.value,
+                            "difficulty_level": question.difficulty_level,
+                            "targeted_skill": question.targeted_skill,
+                            "category": category_name,
+                            "estimated_time_minutes": question.estimated_time_minutes
+                        },
+                        i + 1,  # question_number (1-based)
+                        len(questions)  # total_questions
+                    ))
+            
+            return questions
         except Exception as e:
             # Fallback: generate basic questions if LLM fails
             fallback_questions = self._generate_fallback_questions(skills, category_name)
+            
+            # Stream fallback questions too
+            for i, question in enumerate(fallback_questions):
+                if self.stream_manager:
+                    self._ensure_async_context(self.stream_manager.emit_question_generated(
+                        {
+                            "question_id": question.question_id,
+                            "question_text": question.question_text,
+                            "question_type": question.question_type.value,
+                            "difficulty_level": question.difficulty_level,
+                            "targeted_skill": question.targeted_skill,
+                            "category": category_name,
+                            "estimated_time_minutes": question.estimated_time_minutes,
+                            "is_fallback": True
+                        },
+                        i + 1,  # question_number (1-based)
+                        len(fallback_questions)  # total_questions
+                    ))
+                    
             return fallback_questions
     
     def _generate_fallback_questions(self, skills: List[ExtractedSkill], category: str) -> List[TechnicalQuestion]:

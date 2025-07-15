@@ -1,6 +1,6 @@
 import json
 import time
-from typing import List
+from typing import List, Optional, TYPE_CHECKING
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from app.services.qgen.agents.base_agent import BaseAgent
 from app.services.qgen.models.schemas import (
@@ -8,6 +8,9 @@ from app.services.qgen.models.schemas import (
     MultiAgentInterviewState, LLMConfig, InputScenario, create_initial_state, LLMProvider, SkillExtractionOutput
 )
 from app.logger import get_logger
+
+if TYPE_CHECKING:
+    from app.services.qgen.streaming.stream_manager import StreamManager
 
 class SkillExtractionAgent(BaseAgent):
     """
@@ -20,17 +23,30 @@ class SkillExtractionAgent(BaseAgent):
     - Extract context and evidence for each skill
     """
     
-    def __init__(self, llm_config: LLMConfig):
-        super().__init__("SkillExtractionAgent", llm_config, structured_output_model=SkillExtractionOutput)
+    def __init__(self, llm_config: LLMConfig, stream_manager: Optional['StreamManager'] = None):
+        super().__init__("SkillExtractionAgent", llm_config, 
+                        structured_output_model=SkillExtractionOutput,
+                        stream_manager=stream_manager)
     
     def execute(self, state: MultiAgentInterviewState) -> MultiAgentInterviewState:
         """Execute skill extraction from resume and/or job description."""
         self.logger.info("Starting skill extraction process")
         start_time = time.time()
         
+        # Emit streaming start event
+        self.stream_start_sync("Analyzing documents to extract technical skills...")
+        
         try:
             # Extract skills based on input scenario
             scenario = state["input_scenario"]
+            
+            # Emit thinking event
+            scenario_msg = {
+                InputScenario.RESUME_ONLY: "Analyzing resume for technical skills...",
+                InputScenario.JD_ONLY: "Analyzing job description for required skills...",
+                InputScenario.BOTH: "Analyzing both resume and job description to identify skill matches and gaps..."
+            }
+            self.stream_thinking_sync(scenario_msg.get(scenario, "Processing documents..."))
             
             if scenario == InputScenario.RESUME_ONLY:
                 results = self._extract_from_resume(state["resume_text"], state["position_title"])
@@ -46,6 +62,22 @@ class SkillExtractionAgent(BaseAgent):
             # Update state with extracted skills
             skills_count = len(results["skills"])
             categories_count = len(results["categories"])
+            
+            # Stream extracted skills
+            if self.stream_manager:
+                self.stream_thinking_sync(f"Found {skills_count} skills across {categories_count} categories")
+                
+                # Emit skill found events for each skill
+                for i, skill in enumerate(results["skills"]):
+                    # Use synchronous streaming
+                    self.stream_manager.emit_skill_found_sync({
+                        "skill_name": skill.skill_name,
+                        "category": skill.category,
+                        "experience_level": skill.experience_level,
+                        "confidence_score": skill.confidence_score,
+                        "skill_index": i + 1,
+                        "total_skills": skills_count
+                    })
             
             state["extracted_skills"] = results["skills"]
             state["skill_categories"] = results["categories"]
@@ -324,8 +356,8 @@ def test_skill_extraction_agent():
         llm_model=llm_config.model
     )
     
-    # Create and execute agent
-    agent = SkillExtractionAgent(llm_config)
+    # Create and execute agent (without streaming for test)
+    agent = SkillExtractionAgent(llm_config, stream_manager=None)
     
     try:
         result_state = agent.execute(state)

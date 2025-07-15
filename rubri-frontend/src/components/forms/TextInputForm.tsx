@@ -68,7 +68,6 @@ export const TextInputForm: React.FC<TextInputFormProps> = ({
           onChange={(e) => setJobDescription(e.target.value)}
           rows={12}
           maxLength={10000}
-          showCharCount
           helper="Include requirements, responsibilities, and preferred qualifications"
         />
         
@@ -79,7 +78,6 @@ export const TextInputForm: React.FC<TextInputFormProps> = ({
           onChange={(e) => setResumeText(e.target.value)}
           rows={12}
           maxLength={10000}
-          showCharCount
           helper="Include work experience, skills, and education"
         />
       </div>

@@ -1,5 +1,5 @@
 import time
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, TYPE_CHECKING
 from datetime import datetime
 from langchain_core.messages import AIMessage
 from app.services.qgen.agents.base_agent import BaseAgent
@@ -10,6 +10,9 @@ from app.services.qgen.models.schemas import (
     InputScenario, LLMProvider, QuestionType, create_initial_state, ScoringRubric
 )
 from app.logger import get_logger
+
+if TYPE_CHECKING:
+    from app.services.qgen.streaming.stream_manager import StreamManager
 
 
 class ReportAssemblyAgent(BaseAgent):
@@ -24,13 +27,16 @@ class ReportAssemblyAgent(BaseAgent):
     - Provide executive summary and recommendations
     """
     
-    def __init__(self, llm_config: LLMConfig):
-        super().__init__("ReportAssemblyAgent", llm_config)
+    def __init__(self, llm_config: LLMConfig, stream_manager: Optional['StreamManager'] = None):
+        super().__init__("ReportAssemblyAgent", llm_config, stream_manager=stream_manager)
     
     def execute(self, state: MultiAgentInterviewState) -> MultiAgentInterviewState:
         """Assemble final comprehensive interview evaluation report."""
         self.logger.info("Starting report assembly process")
         start_time = time.time()
+        
+        # Emit streaming start event
+        self.stream_start_sync("Assembling comprehensive interview evaluation report...")
         
         try:
             approved_questions = state["approved_questions"]
@@ -44,15 +50,31 @@ class ReportAssemblyAgent(BaseAgent):
                 self.logger.error(error_msg)
                 raise Exception(error_msg)
             
+            # Stream thinking about assembly strategy
+            self.stream_thinking_sync(f"Organizing {len(approved_questions)} questions across {len(skill_categories)} skill categories...")
+            
             # Create skill assessments
+            self.stream_thinking_sync("Creating skill assessments by category...")
             skill_assessments = self._create_skill_assessments(
                 approved_questions, expected_responses, extracted_skills, question_evaluations
             )
             
             # Create interview sections
+            self.stream_thinking_sync("Organizing questions into interview sections...")
             interview_sections = self._create_interview_sections(skill_assessments, skill_categories)
             
+            # Stream section assembly progress
+            for i, section in enumerate(interview_sections, 1):
+                if self.stream_manager:
+                    # Calculate total questions in this section
+                    total_questions = sum(len(assessment.questions) for assessment in section.skill_assessments)
+                    self._ensure_async_context(self.stream_manager.emit_section_assembled(
+                        section.section_name,
+                        f"Section {i}: {section.section_name} - {total_questions} questions, {section.estimated_total_time} minutes"
+                    ))
+            
             # Generate overall candidate evaluation
+            self.stream_thinking_sync("Generating overall candidate evaluation and recommendations...")
             candidate_evaluation = self._generate_candidate_evaluation(
                 interview_sections, extracted_skills, state
             )

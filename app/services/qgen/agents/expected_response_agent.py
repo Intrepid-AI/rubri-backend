@@ -1,6 +1,6 @@
 import json
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional, TYPE_CHECKING
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from app.services.qgen.agents.base_agent import BaseAgent
 from app.services.qgen.models.schemas import (
@@ -9,6 +9,9 @@ from app.services.qgen.models.schemas import (
     QuestionType, create_initial_state, LLMProvider, ExpectedResponseOutput, ScoringRubric
 )
 from app.logger import get_logger
+
+if TYPE_CHECKING:
+    from app.services.qgen.streaming.stream_manager import StreamManager
 
 class ExpectedResponseAgent(BaseAgent):
     """
@@ -23,13 +26,18 @@ class ExpectedResponseAgent(BaseAgent):
     - Include sample excellent answers
     """
     
-    def __init__(self, llm_config: LLMConfig):
-        super().__init__("ExpectedResponseAgent", llm_config, structured_output_model=ExpectedResponseOutput)
+    def __init__(self, llm_config: LLMConfig, stream_manager: Optional['StreamManager'] = None):
+        super().__init__("ExpectedResponseAgent", llm_config, 
+                        structured_output_model=ExpectedResponseOutput,
+                        stream_manager=stream_manager)
     
     def execute(self, state: MultiAgentInterviewState) -> MultiAgentInterviewState:
         """Generate expected responses for all approved questions."""
         self.logger.info("Starting expected response generation process")
         start_time = time.time()
+        
+        # Emit streaming start event
+        self.stream_start_sync("Creating detailed response guidelines for interviewers...")
         
         try:
             approved_questions = state["approved_questions"]
@@ -41,17 +49,23 @@ class ExpectedResponseAgent(BaseAgent):
                 self.logger.error(error_msg)
                 raise Exception(error_msg)
             
+            # Stream thinking about strategy
+            self.stream_thinking_sync(f"Generating comprehensive response guidelines for {len(approved_questions)} approved questions...")
+            
             # Generate expected responses for each approved question
             expected_responses = []
+            total_questions = len(approved_questions)
             
             for i, question in enumerate(approved_questions, 1):
+                self.stream_thinking_sync(f"Creating response guidelines {i}/{total_questions} for: {question.question_text[:80]}...")
+                
                 # Find the evaluation for this question
                 evaluation = next((e for e in question_evaluations if e.question_id == question.question_id), None)
                 
                 # Find relevant skill
                 relevant_skill = next((s for s in extracted_skills if s.skill_name == question.targeted_skill), None)
                 
-                expected_response = self._generate_expected_response(question, relevant_skill, evaluation)
+                expected_response = self._generate_expected_response(question, relevant_skill, evaluation, i, total_questions)
                 expected_responses.append(expected_response)
             
             # Update state
@@ -100,7 +114,9 @@ class ExpectedResponseAgent(BaseAgent):
     
     def _generate_expected_response(self, question: TechnicalQuestion, 
                                   skill: ExtractedSkill, 
-                                  evaluation: QuestionEvaluation) -> ExpectedResponse:
+                                  evaluation: QuestionEvaluation,
+                                  response_index: int = 1,
+                                  total_responses: int = 1) -> ExpectedResponse:
         """Generate comprehensive expected response for a single question."""
         
         system_prompt = """You are an expert technical interviewer creating detailed guidance for interviewers.
@@ -207,11 +223,45 @@ class ExpectedResponseAgent(BaseAgent):
             # We're generating one response at a time, so take the first response
             expected_response = response.responses[0]
             
+            # Stream response generated event
+            if self.stream_manager:
+                self._ensure_async_context(self.stream_manager.emit_response_generated(
+                    question.question_id,
+                    {
+                        "question_id": question.question_id,
+                        "key_concepts_count": len(expected_response.key_concepts_required),
+                        "good_indicators_count": len(expected_response.good_answer_indicators),
+                        "red_flags_count": len(expected_response.red_flags),
+                        "follow_up_questions_count": len(expected_response.follow_up_questions),
+                        "has_scoring_rubric": expected_response.scoring_rubric is not None,
+                        "response_index": response_index,
+                        "total_responses": total_responses
+                    }
+                ))
+            
             return expected_response
             
         except Exception as e:
             # Create fallback expected response
             fallback_response = self._create_fallback_expected_response(question, skill)
+            
+            # Stream fallback response generated event
+            if self.stream_manager:
+                self._ensure_async_context(self.stream_manager.emit_response_generated(
+                    question.question_id,
+                    {
+                        "question_id": question.question_id,
+                        "key_concepts_count": len(fallback_response.key_concepts_required),
+                        "good_indicators_count": len(fallback_response.good_answer_indicators),
+                        "red_flags_count": len(fallback_response.red_flags),
+                        "follow_up_questions_count": len(fallback_response.follow_up_questions),
+                        "has_scoring_rubric": fallback_response.scoring_rubric is not None,
+                        "response_index": response_index,
+                        "total_responses": total_responses,
+                        "is_fallback": True
+                    }
+                ))
+            
             return fallback_response
     
     def _create_fallback_expected_response(self, question: TechnicalQuestion, 

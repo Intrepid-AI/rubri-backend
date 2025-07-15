@@ -144,9 +144,11 @@ export interface ProgressUpdate {
 }
 
 export interface WebSocketMessage {
-  type: 'progress_update' | 'task_completed' | 'error';
+  type: 'progress_update' | 'task_completed' | 'error' | 'stream_event' | 'stream_batch';
   task_id: string;
   data: any;
+  event?: any; // For stream_event messages
+  events?: any[]; // For stream_batch messages
 }
 
 // Updated request types with auth support
