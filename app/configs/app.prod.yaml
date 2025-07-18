@@ -6,32 +6,59 @@ app:
   port: 8000
 
 database:
-  type: "postgresql"  # Use PostgreSQL for production
-  host: "db"  # Docker service name or production DB host
-  port: 5432
-  username: "rubri_user"
-  password: "strong_password"  # Should be set via environment variable in production
-  database: "rubri_prod"
+  type: "sqlite"
+  sqlite_path: "/app/data/rubri.db"  # Use volume-mounted path for persistence
   pool_size: 10
   max_overflow: 20
-  # SQLite fallback configuration
-  use_sqlite_fallback: true  # Fall back to SQLite if PostgreSQL is not available
-  sqlite_path: "rubri_prod.db"  # Relative path in project directory for easier access
 
-storage:
-  base_dir: "/data/received_data"
+llm_providers:
+  openai:
+    constructor_params:
+      model: "gpt-4o-mini"
+      temperature: 0.7
+    invoke_params:
+      # streaming: false
+      # max_tokens: 1024
 
-llm:
-  provider: "openai"
-  model: "gpt-4"
-  temperature: 0.1  # Lower temperature for more consistent results in production
+  azure_openai:
+    constructor_params:
+      azure_deployment: "gpt-4o-mini"
+      temperature: 0.8
+    invoke_params:
+      # streaming: false
+
+  gemini:
+    constructor_params:
+      model: "gemini-2.0-flash-001"
+      temperature: 0.8
+    invoke_params:
+      # streaming: false
+
+  groq:
+    constructor_params:
+      model: "meta-llama/llama-4-scout-17b-16e-instruct"
+      temperature: 0.8
+    invoke_params:
+      # streaming: false
+
+  portkey:
+    constructor_params:
+      model: "gpt-4"
+    invoke_params:
+      temperature: 0.7
+      # streaming: false
+
+prompts:
+  prompt_jd : rubric_jd.md
+  prompt_jd_res : rubric_jd_res.md
 
 development:
-  use_mock_responses: false
+  use_mock_responses: false     
+  mock_response_file: "app/api/v1/sample_responce/response.json"
 
 # Redis configuration for Celery
 redis:
-  url: "redis://redis:6379/0"  # Docker service name for Redis
+  url: "${REDIS_URL:-redis://redis:6379/0}"  # Use environment variable or default
 
 # Email configuration
 email:
@@ -42,18 +69,34 @@ email:
   # SMTP credentials should be set via environment variables:
   # SMTP_USERNAME and SMTP_PASSWORD
 
-# Frontend URL for email links
-frontend_url: "https://app.rubri.ai"
+# URLs are now configured via environment variables only
+# Set FRONTEND_URL in your .env file or deployment environment
 
 # Google OAuth configuration
+# All OAuth settings should be configured via environment variables:
+# GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
 google_oauth:
   client_id: ""  # Set via GOOGLE_CLIENT_ID environment variable
   client_secret: ""  # Set via GOOGLE_CLIENT_SECRET environment variable
-  redirect_uri: "https://api.rubri.ai/api/v1/auth/google/callback"
 
 # JWT Configuration
 jwt:
-  secret_key: ""  # Set via JWT_SECRET_KEY environment variable
+  secret_key: ""  # MUST be set via JWT_SECRET_KEY environment variable
   algorithm: "HS256"
   access_token_expire_minutes: 1440  # 24 hours
   refresh_token_expire_days: 30
+
+# Production-specific settings
+# CORS is now configured based on FRONTEND_URL environment variable
+
+# Security settings
+security:
+  # Rate limiting, HTTPS enforcement, etc. can be configured here
+  force_https: true
+  secure_cookies: true
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "json"  # Use JSON format for production logs
+  file: "/app/logs/rubri.log"

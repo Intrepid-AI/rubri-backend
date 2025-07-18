@@ -213,7 +213,9 @@ async def get_redis_subscriber(websocket_manager) -> RedisEventSubscriber:
     global _subscriber_instance
     
     if _subscriber_instance is None:
-        _subscriber_instance = RedisEventSubscriber(websocket_manager)
+        import os
+        redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+        _subscriber_instance = RedisEventSubscriber(websocket_manager, redis_url)
         await _subscriber_instance.start()
         
     return _subscriber_instance

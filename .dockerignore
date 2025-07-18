@@ -1,0 +1,92 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+.env
+*.egg-info/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Virtual environments
+bin/
+include/
+lib/
+lib64/
+share/
+pyvenv.cfg
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+*.db
+*.sqlite
+*.sqlite3
+received_data/
+data/
+logs/
+.ruff_cache/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+README.md
+LICENSE
+
+# Tests
+tests/
+test_*.py
+*_test.py
+conftest.py
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Frontend (if accidentally included)
+rubri-frontend/

@@ -97,14 +97,15 @@ email:
   # SMTP credentials should be set via environment variables:
   # SMTP_USERNAME and SMTP_PASSWORD
 
-# Frontend URL for email links
-frontend_url: "http://localhost:3000"
+# URLs are now configured via environment variables only
+# Set FRONTEND_URL in your .env file or deployment environment
 
 # Google OAuth configuration
+# All OAuth settings should be configured via environment variables:
+# GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
 google_oauth:
   client_id: ""  # Set via GOOGLE_CLIENT_ID environment variable
   client_secret: ""  # Set via GOOGLE_CLIENT_SECRET environment variable
-  redirect_uri: "http://localhost:8000/api/v1/auth/google/callback"
 
 # JWT Configuration
 jwt:

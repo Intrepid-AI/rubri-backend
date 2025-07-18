@@ -118,7 +118,9 @@ class WebSocketManager {
       const originalOnOpen = ws.onopen;
       ws.onopen = (event) => {
         clearTimeout(connectionTimeout);
-        originalOnOpen?.(event);
+        if (originalOnOpen) {
+          originalOnOpen.call(ws, event);
+        }
       };
 
     } catch (error) {

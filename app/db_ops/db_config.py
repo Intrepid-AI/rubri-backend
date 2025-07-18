@@ -91,6 +91,26 @@ def _override_from_env(config):
         config["development"]["use_mock_responses"] = os.getenv("DEVELOPMENT_USE_MOCK_RESPONSES").lower() == "true"
     if os.getenv("DEVELOPMENT_MOCK_RESPONSE_FILE"):
         config["development"]["mock_response_file"] = os.getenv("DEVELOPMENT_MOCK_RESPONSE_FILE")
+    
+    # URL environment overrides - Single source of truth for deployment URLs
+    if os.getenv("FRONTEND_URL"):
+        config["frontend_url"] = os.getenv("FRONTEND_URL")
+    
+    # Google OAuth overrides
+    if "google_oauth" not in config:
+        config["google_oauth"] = {}
+    if os.getenv("GOOGLE_CLIENT_ID"):
+        config["google_oauth"]["client_id"] = os.getenv("GOOGLE_CLIENT_ID")
+    if os.getenv("GOOGLE_CLIENT_SECRET"):
+        config["google_oauth"]["client_secret"] = os.getenv("GOOGLE_CLIENT_SECRET")
+    if os.getenv("GOOGLE_REDIRECT_URI"):
+        config["google_oauth"]["redirect_uri"] = os.getenv("GOOGLE_REDIRECT_URI")
+    
+    # Redis URL override
+    if "redis" not in config:
+        config["redis"] = {}
+    if os.getenv("REDIS_URL"):
+        config["redis"]["url"] = os.getenv("REDIS_URL")
 
 def _setup_database_url(config):
     db_config = config["database"]

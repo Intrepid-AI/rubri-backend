@@ -152,5 +152,7 @@ def get_redis_publisher() -> RedisEventPublisher:
     """
     global _publisher_instance
     if _publisher_instance is None:
-        _publisher_instance = RedisEventPublisher()
+        import os
+        redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+        _publisher_instance = RedisEventPublisher(redis_url)
     return _publisher_instance

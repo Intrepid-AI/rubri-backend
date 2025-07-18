@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: rubri-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=prod
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=sqlite:////app/data/rubri.db
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./received_data:/app/received_data
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: rubri-redis
+    ports:
+      - "6380:6379"  # Changed to avoid conflict with local Redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: 
+      context: ./rubri-frontend
+      args:
+        # Pass the API URL as a build argument
+        # This overrides the value in .env.production during build
+        - VITE_API_BASE_URL=${FRONTEND_API_URL:-http://localhost:8000}
+    container_name: rubri-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  redis-data:
+  
+networks:
+  default:
+    name: rubri-network

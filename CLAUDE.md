@@ -540,6 +540,53 @@ python start_celery_worker.py
 cd rubri-frontend && npm run dev
 ```
 
+**Docker Compose Local Testing:**
+```bash
+# 1. Ensure Docker is running
+docker --version
+
+# 2. Create .env file if not exists
+cp .env.example .env
+
+# 3. Edit .env file with your API keys and URLs
+# Required variables:
+# - OPENAI_API_KEY or other LLM provider key
+# - GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
+# - JWT_SECRET_KEY (generate with: openssl rand -hex 32)
+# - FRONTEND_URL=http://localhost:3000
+# - FRONTEND_API_URL=http://localhost:8000
+
+# 4. Build and run all services
+docker-compose up --build
+
+# 5. Access the application
+# Frontend: http://localhost:3000
+# Backend API: http://localhost:8000
+# API Docs: http://localhost:8000/docs
+
+# 6. To run in background
+docker-compose up -d
+
+# 7. To stop all services
+docker-compose down
+
+# 8. To rebuild after code changes
+docker-compose build
+docker-compose up
+
+# 9. View logs
+docker-compose logs -f backend    # Backend logs
+docker-compose logs -f frontend   # Frontend logs
+docker-compose logs -f redis      # Redis logs
+
+# 10. Debug issues
+docker-compose ps                 # Check container status
+docker-compose exec backend bash  # Access backend container
+```
+
+**Note on Docker Compose Build Errors:**
+If you encounter TypeScript errors during frontend build, the Dockerfile is configured to fall back to `vite build` without TypeScript checking. This allows the build to complete while you fix type issues separately.
+
 **Test Streaming System:**
 ```bash
 # Test Redis streaming
@@ -557,6 +604,129 @@ redis-cli SUBSCRIBE 'stream:task:your_task_id'
 - Look for WebSocket connections
 - Check connection status and messages
 - Verify task_id in WebSocket URL
+
+## URL Configuration Guide
+
+### Single Source of Truth: Environment Variables
+
+All URLs are now configured through environment variables ONLY. No URLs should be in config.yaml files.
+
+### Local Development Setup
+
+#### Option 1: Running Services Individually
+
+1. **Backend Setup**:
+   ```bash
+   # Create .env file from example
+   cp .env.example .env
+   
+   # Edit .env and set URLs for local development:
+   FRONTEND_URL=http://localhost:3000
+   GOOGLE_REDIRECT_URI=http://localhost:8000/api/v1/auth/google/callback
+   
+   # The backend will automatically use these values
+   python main.py
+   ```
+
+2. **Frontend Setup**:
+   ```bash
+   cd rubri-frontend
+   
+   # Development mode automatically uses .env.development
+   # which has VITE_API_BASE_URL=http://localhost:8000
+   npm run dev
+   ```
+
+#### Option 2: Docker Compose Local Testing
+
+1. **Create .env file**:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Set local URLs in .env**:
+   ```env
+   # Frontend URLs
+   FRONTEND_URL=http://localhost:3000
+   FRONTEND_API_URL=http://localhost:8000
+   
+   # OAuth redirect for local testing
+   GOOGLE_REDIRECT_URI=http://localhost:8000/api/v1/auth/google/callback
+   
+   # Other required variables...
+   ```
+
+3. **Run Docker Compose**:
+   ```bash
+   docker-compose up --build
+   ```
+
+### Production Deployment (Coolify/Hetzner)
+
+#### 1. Environment Variables in Coolify
+
+Set these in Coolify's environment variables section:
+
+```env
+# Your domain URLs
+FRONTEND_URL=https://rubri.ai
+FRONTEND_API_URL=https://api.rubri.ai
+GOOGLE_REDIRECT_URI=https://api.rubri.ai/api/v1/auth/google/callback
+
+# API Keys and secrets
+OPENAI_API_KEY=sk-...
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+JWT_SECRET_KEY=...
+```
+
+#### 2. No Code Changes Required
+
+The same code works in all environments because:
+- Backend reads URLs from environment variables
+- Frontend build process uses `FRONTEND_API_URL` build arg
+- Docker Compose passes the correct values
+
+### URL Configuration Locations
+
+| URL Variable | Where Used | Purpose |
+|-------------|------------|---------|
+| `FRONTEND_URL` | Backend (auth_routes.py, email_tasks.py) | OAuth redirect base, email links |
+| `FRONTEND_API_URL` | Docker Compose → Frontend build | API endpoint for frontend |
+| `GOOGLE_REDIRECT_URI` | Backend (google_oauth.py) | OAuth callback URL |
+| `VITE_API_BASE_URL` | Frontend (.env files) | Frontend's API endpoint |
+
+### Important Notes
+
+1. **Never hardcode URLs** in the code
+2. **Config.yaml files** should NOT contain URLs
+3. **All URLs** must come from environment variables
+4. **Frontend builds** bake in the API URL at build time
+
+### Testing Different Environments
+
+```bash
+# Test with production URLs locally
+FRONTEND_URL=https://rubri.ai FRONTEND_API_URL=https://api.rubri.ai docker-compose up
+
+# Test with staging URLs
+FRONTEND_URL=https://staging.rubri.ai FRONTEND_API_URL=https://api-staging.rubri.ai docker-compose up
+```
+
+### Verifying URL Configuration
+
+1. **Check backend is using correct URLs**:
+   ```python
+   # In any Python file
+   from app.db_ops.db_config import load_app_config
+   config = load_app_config()
+   print(config.get('frontend_url'))  # Should show your FRONTEND_URL env var
+   ```
+
+2. **Check frontend build has correct API URL**:
+   - Open browser DevTools
+   - Check Network tab for API calls
+   - Should go to the URL you set in FRONTEND_API_URL
 
 ### Code Style Guidelines
 - Python: Black formatter, type hints

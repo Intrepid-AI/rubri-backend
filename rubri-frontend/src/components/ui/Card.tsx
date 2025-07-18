@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils'
 import { cardVariants, type CardVariants } from '../../lib/variants'
 
 interface CardProps 
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends Omit<React.HTMLAttributes<HTMLDivElement>, 'style'>,
           CardVariants {
   /**
    * The content of the card
@@ -121,7 +121,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
         ref={ref}
         className={cn(
           cardVariants({ 
-            variant: isInteractive && variant === 'default' ? 'interactive' : variant, 
+            variant: variant, 
             padding 
           }),
           isInteractive && 'cursor-pointer',

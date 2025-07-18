@@ -41,7 +41,7 @@ export const TestComponents: React.FC = () => {
 
         {/* Button Variants */}
         <Card>
-          <CardHeader title="Button Variants" subtitle="Professional button components with animations" />
+          <CardHeader title="Button Variants" subtitle="Professional button components with animations"><></></CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Button variant="primary" leftIcon={Zap}>Primary</Button>
@@ -66,7 +66,7 @@ export const TestComponents: React.FC = () => {
 
         {/* Input Variants */}
         <Card>
-          <CardHeader title="Input Components" subtitle="Professional form inputs with states" />
+          <CardHeader title="Input Components" subtitle="Professional form inputs with states"><></></CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input 
@@ -106,21 +106,21 @@ export const TestComponents: React.FC = () => {
         {/* Card Variants */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card variant="default">
-            <CardHeader title="Default Card" />
+            <CardHeader title="Default Card"><></></CardHeader>
             <CardContent>
               <p>Standard card with soft shadow</p>
             </CardContent>
           </Card>
           
           <Card variant="elevated">
-            <CardHeader title="Elevated Card" />
+            <CardHeader title="Elevated Card"><></></CardHeader>
             <CardContent>
               <p>Card with medium shadow for emphasis</p>
             </CardContent>
           </Card>
           
-          <Card variant="interactive" hover>
-            <CardHeader title="Interactive Card" />
+          <Card interactive hover>
+            <CardHeader title="Interactive Card"><></></CardHeader>
             <CardContent>
               <p>Hover me! Interactive with animations</p>
             </CardContent>
@@ -161,7 +161,7 @@ export const TestComponents: React.FC = () => {
                 <Button size="sm">Save</Button>
               </div>
             }
-          />
+          ><></></CardHeader>
           <CardContent>
             <p className="text-gray-600 leading-relaxed">
               This demonstrates our professional card layout with header icons, 

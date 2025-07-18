@@ -8,6 +8,7 @@ from datetime import datetime
 from app.api.v1.datamodels import ErrorResponse
 from app.db_ops.database import get_db
 from app.db_ops import crud
+from app.db_ops.db_config import load_app_config
 from app.auth.google_oauth import google_oauth
 from app.auth.jwt_utils import create_token_pair, hash_token, decode_token
 from app.auth.dependencies import require_auth, get_optional_user
@@ -140,7 +141,8 @@ async def google_callback(
         )
         
         # Redirect to frontend question generation page with tokens as URL parameters
-        frontend_url = "http://localhost:5173"  # Vite frontend URL
+        app_config = load_app_config()
+        frontend_url = app_config.get('frontend_url', 'http://localhost:3000')
         redirect_url = f"{frontend_url}/generator?access_token={tokens['access_token']}&refresh_token={tokens['refresh_token']}"
         
         return RedirectResponse(url=redirect_url)

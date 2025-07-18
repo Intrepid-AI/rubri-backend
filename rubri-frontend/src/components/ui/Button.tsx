@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils'
 import { buttonVariants, type ButtonVariants } from '../../lib/variants'
 
 interface ButtonProps 
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onDrag'>,
           ButtonVariants {
   /**
    * The content of the button
@@ -51,8 +51,8 @@ interface ButtonProps
  */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({
-    variant = 'primary',
-    size = 'md',
+    variant = 'default',
+    size = 'default',
     loading = false,
     disabled,
     className,
@@ -78,11 +78,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     // Icon size based on button size
     const iconSize = {
       sm: 14,
+      default: 16,
       md: 16,
       lg: 18,
       xl: 20,
       icon: 16,
-    }[size]
+    }[size || 'default']
     
     const buttonContent = (
       <>
@@ -136,14 +137,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         type={type}
         className={cn(
-          buttonVariants({ variant, size, loading }),
+          buttonVariants({ variant, size }),
           iconOnly && 'aspect-square',
+          loading && 'opacity-50 cursor-not-allowed',
           className
         )}
         disabled={isDisabled}
         aria-label={iconOnly ? (typeof children === 'string' ? children : tooltip) : undefined}
         title={tooltip}
-        {...buttonMotion}
+        whileTap={buttonMotion.whileTap}
+        whileHover={buttonMotion.whileHover}
+        transition={buttonMotion.transition as any}
         {...props}
       >
         {buttonContent}
@@ -187,8 +191,8 @@ export const ButtonGroup: React.FC<ButtonGroupProps> = ({
       {React.Children.map(children, (child) => {
         if (React.isValidElement(child) && child.type === Button) {
           return React.cloneElement(child as React.ReactElement<ButtonProps>, {
-            size: size || child.props.size,
-            variant: variant || child.props.variant,
+            size: size || (child as React.ReactElement<ButtonProps>).props.size,
+            variant: variant || (child as React.ReactElement<ButtonProps>).props.variant,
           })
         }
         return child

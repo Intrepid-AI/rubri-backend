@@ -4,7 +4,7 @@ import { cn } from '../../lib/utils'
 import { inputVariants, type InputVariants } from '../../lib/variants'
 
 interface InputProps 
-  extends React.InputHTMLAttributes<HTMLInputElement>,
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,
           InputVariants {
   /**
    * Label text for the input
@@ -115,7 +115,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     ...props
   }, ref) => {
     const [showPassword, setShowPassword] = useState(false)
-    const [focused, setFocused] = useState(false)
+    const [, setFocused] = useState(false)
     
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-')
     const hasValue = value !== undefined ? String(value).length > 0 : false
@@ -123,7 +123,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const currentType = isPassword && showPassword ? 'text' : type
     
     // Determine variant based on state
-    const currentVariant = error ? 'error' : success ? 'success' : warning ? 'warning' : variant
+    const currentVariant = error ? 'error' : variant
     
     // Calculate if we should show right icons
     const showClearButton = clearable && hasValue && !loading
@@ -182,7 +182,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               props.onBlur?.(e)
             }}
             className={cn(
-              inputVariants({ variant: currentVariant, size }),
+              inputVariants({ variant: currentVariant, size: size as "default" | "sm" | "lg" | null | undefined }),
               LeftIcon && 'pl-10',
               (showClearButton || showPasswordToggle || showRightIcon || loading) && 'pr-10',
               className
@@ -284,7 +284,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     ...props
   }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-')
-    const currentVariant = error ? 'error' : success ? 'success' : warning ? 'warning' : variant
+    const currentVariant = error ? 'error' : variant
     
     return (
       <FormField
